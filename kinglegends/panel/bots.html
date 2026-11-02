@@ -311,17 +311,29 @@ function ingest(docs) {
   render();
 }
 
-// Aynı tur hem Mac'ten (canlı klasör) hem depodan (yayınlanan kopya) gelebilir: ortak bot imzası (fp) olanlar tek tur
+// Bir Mac'in turlarını toplayıcı zaten birleştirdi (canlı klasör + Docs kopyası). Farklı kaynaklardan (iki Mac, eski kimlik)
+// gelen turlar ancak anahtarları aynıysa ya da ortak bot imzaları (fp) büyük turun botlarının yarısından fazlaysa tek tur sayılır.
 function mergeRuns(fs) {
   const all = [];
   fs.forEach((f) => (f.runs || []).forEach((r) => all.push({ ...r, uid: f.uid, host: f.host, fleetAt: f.at || 0 })));
   const parent = all.map((_, i) => i);
   const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-  const byFp = {}, byKey = {};
+  const union = (a, b) => { parent[find(a)] = find(b); };
+  const byKey = new Map(), byFp = new Map(), shared = new Map();
   all.forEach((r, i) => {
-    for (const fp of r.fps || []) { if (fp in byFp) parent[find(i)] = find(byFp[fp]); else byFp[fp] = i; }
-    if (r.key in byKey) parent[find(i)] = find(byKey[r.key]); else byKey[r.key] = i;
+    const k = byKey.get(r.key);
+    if (k === undefined) byKey.set(r.key, i); else if (all[k].uid !== r.uid) union(i, k);
+    for (const fp of r.fps || []) { if (!byFp.has(fp)) byFp.set(fp, []); byFp.get(fp).push(i); }
   });
+  for (const is of byFp.values()) for (let a = 0; a < is.length; a++) for (let b = a + 1; b < is.length; b++) {
+    if (all[is[a]].uid === all[is[b]].uid) continue;
+    const pk = is[a] + "," + is[b];
+    shared.set(pk, (shared.get(pk) || 0) + 1);
+  }
+  for (const [pk, n] of shared) {
+    const [a, b] = pk.split(",").map(Number);
+    if (n * 2 > Math.max(all[a].fps.length, all[b].fps.length)) union(a, b);
+  }
   const groups = {};
   all.forEach((r, i) => (groups[find(i)] ||= []).push(r));
   return Object.values(groups).map((g) => {

@@ -111,6 +111,8 @@ const $ = (id) => document.getElementById(id);
 const DAY = 86400000;
 const STEPS = ["Oyunu açtı", "Hikâye başladı", "Hikâye bitti", "1. savaş", "İlk kart", "1. savaş bitti", "Şehri gördü",
   "2. savaş", "İlk yükseltme", "Ertesi gün döndü", "İlk zafer", "5. savaş", "Mağazayı açtı", "1. diyarı fethetti", "7. gün döndü"];
+// Huni gösterim sırası (oyuncuların çoğunun yaşadığı sıra; bit numaraları kayıttaki gibi kalır)
+const STEP_ORDER = [0, 1, 2, 3, 4, 5, 10, 6, 8, 7, 11, 12, 13, 9, 14];
 const SRC = { friend: "Arkadaşından", instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", store: "App Store", ad: "Reklam", other: "Başka" };
 const GEN = { survivor: "Hayatta kalma", rpg: "RPG", strategy: "Strateji", puzzle: "Bulmaca", action: "Aksiyon", idle: "Idle", moba: "MOBA", none: "Pek oynamaz" };
 const MODELS = { "iPhone18,3": "iPhone 17", "iPhone18,1": "iPhone 17 Pro", "iPhone18,2": "iPhone 17 Pro Max", "iPhone18,4": "iPhone Air",
@@ -172,7 +174,7 @@ function norm(id, d) {
     app: d.app || "", first: ts(d.first), last: ts(d.last), sessions: n("sessions"), playSec: d.playSec != null ? n("playSec") : n("playMin") * 60, days: n("days"),
     dayMask: Number(d.dayMask || 0), hours: (d.hours || []).map(Number), dows: (d.dows || []).map(Number), recent: (d.recent || []).map(Number),
     best: n("best"), bestCode: d.bestCode || "00-00", dynasty: n("dynasty") || 1, runs: n("runs"), wins: n("wins"), deaths: n("deaths"),
-    extracts: n("extracts"), quits: n("quits"), revives: n("revives"), stuckAt: d.stuckAt || "", stuckFails: n("stuckFails"),
+    extracts: n("extracts"), quits: n("quits"), revives: n("revives"), stuckAt: d.stuckAt || "", stuckFails: n("stuckFails"), wallAt: d.wallAt || "", wallFails: n("wallFails"),
     stuckSince: ts(d.stuckSince), lastScreen: d.lastScreen || "", lastRun: d.lastRun || "", inRun: !!d.inRun, gold: n("gold"), gems: n("gems"),
     purchases: n("purchases"), usd: Number(d.usd || 0), vip: !!d.vip, shopOpens: n("shopOpens"), offerViews: n("offerViews"),
     buyStarts: n("buyStarts"), buyFails: n("buyFails"), lastProduct: d.lastProduct || "", adsWatched: n("adsWatched"),
@@ -245,8 +247,8 @@ function render() {
   charts.push(hbars("Son yaptıkları", "Bırakan oyuncuların en son savaşı (bölüm, sonuç, süre). 'death' ile bitenler ölüp çıkmış.",
     count(lost, (p) => p.lastRun.replace(/ \d\d:\d\d$/, "")).slice(0, 12), {}));
   // İlk adımlar hunisi
-  charts.push(hbars("İlk adımlar", "Yeni oyuncuların yüzde kaçı bu adıma vardı. Büyük düşüş = ilk dakikalarda sorun.",
-    STEPS.map((s, i) => [s, ps.filter((p) => (p.onboard >> i) & 1).length]), { pct: true, total: ps.length }));
+  charts.push(hbars("İlk adımlar", "Yeni oyuncuların yüzde kaçı bu adıma vardı. Büyük düşüş = ilk dakikalarda sorun. Sıra çoğu oyuncunun yaşadığı sıradır; bazı adımlar (şehir, mağaza) önce ya da sonra gelebilir.",
+    STEP_ORDER.map((i) => [STEPS[i], ps.filter((p) => (p.onboard >> i) & 1).length]), { pct: true, total: ps.length }));
   // Diyar hunisi
   const realms = [];
   for (let r = 1; r <= 10; r++) realms.push([`${r}. diyar`, ps.filter((p) => p.best >= (r - 1) * 10).length, `${r}. diyara ulaşan`]);
@@ -254,6 +256,8 @@ function render() {
   charts.push(hbars("Diyarlara ulaşma", "Oyuncuların yüzde kaçı o diyara kadar geldi.", realms, { pct: true, total: ps.length }));
   charts.push(hbars("Takıldıkları bölüm", "Şu an aynı bölümde art arda 3+ kez ölenler (sağda kişi sayısı).",
     count(ps.filter((p) => p.stuckFails >= 3), (p) => p.stuckAt).map(([k, v]) => { const g = ps.filter((p) => p.stuckAt === k && p.stuckFails >= 3); return [k, v, `${k}: ${v} oyuncu, ortalama ${Math.round(avg(g.map((p) => p.stuckFails)))} ölüm`]; }), {}));
+  charts.push(hbars("Duvarlar", "İlerleyemeden 5+ kez ölenler, geçmeye çalıştıkları bölüme göre (öldükleri bölüm değişse de sayılır).",
+    count(ps.filter((p) => p.wallFails >= 5), (p) => p.wallAt).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => { const g = ps.filter((p) => p.wallAt === k && p.wallFails >= 5); return [k, v, `${k}: ${v} oyuncu, ortalama ${Math.round(avg(g.map((p) => p.wallFails)))} ölüm`]; }), {}));
   // Saatler ve günler
   const hours = Array(24).fill(0), dows = Array(7).fill(0);
   ps.forEach((p) => { p.hours.forEach((v, i) => (hours[i] += v || 0)); p.dows.forEach((v, i) => (dows[i] += v || 0)); });
@@ -302,7 +306,7 @@ function renderTable(ps) {
   const head = `<thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}">${t}${k === sortKey ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>`;
   const body = rows.map((p) => {
     const flags = [churned(p) ? `<span class="chip bad">bıraktı?</span>` : `<span class="chip good">aktif</span>`,
-      p.stuckFails >= 3 ? `<span class="chip warn">takıldı ×${p.stuckFails}</span>` : "", shrinking(p) ? `<span class="chip warn">oturum kısalıyor</span>` : "",
+      p.stuckFails >= 3 ? `<span class="chip warn">takıldı ×${p.stuckFails}</span>` : "", p.wallFails >= 5 ? `<span class="chip warn">duvar ${esc(p.wallAt)} ×${p.wallFails}</span>` : "", shrinking(p) ? `<span class="chip warn">oturum kısalıyor</span>` : "",
       p.buyFails > 0 && !p.purchases ? `<span class="chip warn">almaya bastı, vazgeçti</span>` : "", p.purchases ? `<span class="chip good">ödedi</span>` : ""].join("");
     return `<tr data-id="${esc(p.id)}"><td>${esc(p.sid || p.id.slice(0, 8))}</td><td>${p.first ? new Date(p.first).toLocaleDateString("tr-TR") : "–"}</td><td>${ago(p.last)}</td><td>${p.days}</td><td>${p.sessions}</td><td>${dur(p.playSec)}</td><td>${esc(p.bestCode)}</td><td>${p.stuckFails >= 3 ? esc(p.stuckAt) + " ×" + p.stuckFails : ""}</td><td>${esc(p.lastRun)}</td><td>${p.usd ? p.usd.toFixed(2) : ""}</td><td>${esc(model(p.model))}</td><td>${flags}</td></tr>`;
   }).join("");
@@ -345,6 +349,7 @@ function fakePlayers(n) {
       app: "0.9.0", first, last, sessions: 1 + life * 2, playSec: Math.round((20 + life * 25 * r()) * 60), days: 1 + life, dayMask: mask, hours, dows, recent,
       best, bestCode: String(Math.floor(best / 10) + 1).padStart(2, "0") + "-" + String((best % 10) + 1).padStart(2, "0"), runs: 3 + life * 6, wins: life * 3, deaths: life * 2 + 1, extracts: life, quits: Math.floor(r() * 3),
       stuckAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", stuckFails: stuck ? 3 + Math.floor(r() * 6) : 0,
+      wallAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", wallFails: stuck ? 5 + Math.floor(r() * 15) : 0,
       lastRun: ["01-0", "02-0", "03-0"][Math.floor(r() * 3)] + Math.floor(r() * 9 + 1) + [" death", " extract", " win"][Math.floor(r() * 3)] + " 03:12",
       purchases: buy ? 1 : 0, usd: buy ? 4.99 : 0, shopOpens: r() < 0.6 ? 2 : 0, offerViews: r() < 0.4 ? 1 : 0, buyStarts: r() < 0.12 ? 1 : 0, buyFails: r() < 0.07 ? 1 : 0,
       adsWatched: Math.floor(r() * 12), adsSkipped: Math.floor(r() * 2), adsMissing: Math.floor(r() * 2), onboard: life > 0 ? 2 ** 15 - 1 - (r() < 0.5 ? 2 ** 14 : 0) : 2 ** Math.floor(4 + r() * 6) - 1,

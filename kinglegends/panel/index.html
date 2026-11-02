@@ -64,6 +64,12 @@ tbody tr:hover { background: var(--chip); }
 .err { color: var(--bad); }
 #drill { margin-top: 12px; }
 .note { font-size: 12px; color: var(--ink3); margin-top: 6px; }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.acts button { padding: 4px 9px; font-size: 13px; }
+button.danger { color: var(--bad); }
+#reportFind { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+#reportFind input { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 10px; min-width: 220px; flex: 1; max-width: 360px; }
+#reports td { white-space: normal; }
 </style>
 </head>
 <body>
@@ -98,6 +104,13 @@ tbody tr:hover { background: var(--chip); }
     <div class="sub">Bir satıra tıkla: o oyuncunun son oturumları ve yaptığı her şey sırayla. Destek Kimliği oyunda Ayarlar'ın altında yazar.</div>
     <div class="scroll"><table id="players"></table></div>
     <div id="drill"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>Bildirilen adlar</h2>
+    <div class="sub">Oyuncuların yazdığı adlar küfür süzgecinden geçer; kaçanı oyuncular "Adı bildir"le buraya yollar. <b>Sıfırla</b>: ad hazır bir adla değişir (sıralama satırları da), oyuncu kilit süresince ad yazamaz, oyunda bir kez "Adın değişti" görür. <b>Yoksay</b>: bildirimler silinir, ad kalır.</div>
+    <div id="reportFind"><input id="findName" placeholder="Ada ya da oyuncu kimliğine göre bul" autocomplete="off"><button id="findBtn">Bul</button></div>
+    <div class="scroll"><table id="reports"></table></div>
+    <div class="note" id="reportNote"></div>
   </div>
   <p class="note">Veri: Firestore "players" (oyuncu kartı, en sık 3 dakikada bir ve oyuncu oyundan çıkarken güncellenir). Toplu grafikler, tutunma ve gelir için Firebase konsolu &gt; Analytics de var. Kişisel bilgi yok: oyuncular rastgele Destek Kimliğiyle görünür.</p>
 </main>
@@ -146,7 +159,7 @@ $("signin").onclick = async () => {
   } catch (e) { setStatus("Giriş olmadı: " + (e.code || e.message), true); }
 };
 $("reload").onclick = () => demo ? render() : load();
-$("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); };
+$("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); fakeReports(); };
 $("channel").onchange = render;
 $("range").onchange = render;
 
@@ -162,6 +175,7 @@ async function load() {
     all = snap.docs.map((d) => norm(d.id, d.data()));
     loadedAt = `${new Date().toLocaleString("tr-TR")} · giriş: ${f.authI.currentUser.email}`;
     render();
+    loadReports();
   } catch (e) {
     setStatus("Okunamadı: " + (e.code || e.message) + (String(e.code).includes("permission") ? " (Firestore kuralı bu hesaba okuma izni vermiyor)" : ""), true);
   }
@@ -373,6 +387,159 @@ function fakeEvents(p) {
 09:41 purchase_fail product=gems.m reason=cancelled
 09:44 shop_exit screen=shop sec=52 started=1 bought=0
 10:02 session_pause sec=602 in_run=0`;
+}
+
+// ---- Bildirilen adlar (Firestore "reports", "profiles", "names"; Docs/profiles.md)
+const EP = ["", "Demir Yürekli", "Cesur", "Bilge", "Çevik", "Sessiz", "Altın", "Gümüş", "Aslan Yürekli", "Fırtınalı", "Kızıl", "Kuzgun", "Ayaz", "Adil", "Gözü Kara", "Neşeli", "Yıldırım", "Çelik", "Yenilmez", "Ejder", "Kartal", "Kurt", "Yıldız", "Gölge", "Şanlı"];
+const TI = ["Kral", "Kraliçe", "Prens", "Prenses", "Şövalye", "Lord", "Leydi", "Han", "Hatun", "Bey", "Komutan", "Muhafız", "Kâhin", "Avcı", "Büyücü"];
+const NA = ["Aras", "Arda", "Alp", "Atlas", "Aybars", "Bora", "Baran", "Cem", "Deniz", "Doruk", "Ece", "Elif", "Ela", "Eren", "Mete", "Kaan", "Kerem", "Lale", "Mira", "Nehir", "Ozan", "Selin", "Tuna", "Toprak", "Umay", "Yağız", "Zeynep", "Defne", "Asya", "Ada", "Kayra", "Alara", "Ilgaz", "Tolga", "Oğuz", "Aslı", "Duru", "Melis", "Rüzgar", "Ayla", "Aldric", "Cedric", "Rowan", "Elara", "Lyra", "Edmund", "Isolde", "Tristan", "Leon", "Mara", "Nora", "Owen", "Roland", "Sybil", "Theo", "Vera", "Wren", "Ivo", "Aurelia", "Caspian", "Darian", "Freya", "Hugo", "Kael"];
+const REASONS = ["Küfür / hakaret", "Taklit", "Başka"];
+let reportRows = [], extraRows = [];
+
+function codeName(n) {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(n || "");
+  if (!m) return n || "";
+  const e = EP[+m[1]] || "", t = TI[+m[2]] || TI[0], a = NA[+m[3]] || NA[0];
+  return (e ? e + " " : "") + t + " " + a;
+}
+// Oyundaki BoardNames.ForUid (FNV-1a): hesabın kalıcı hazır adı
+function forUid(uid) {
+  let h = 2166136261;
+  for (let i = 0; i < uid.length; i++) { h = (h ^ uid.charCodeAt(i)) >>> 0; h = Math.imul(h, 16777619) >>> 0; }
+  const e = 1 + (h % (EP.length - 1)); h = Math.floor(h / EP.length);
+  const t = h % TI.length; h = Math.floor(h / TI.length);
+  return `${e}.${t}.${h % NA.length}`;
+}
+// Oyundaki NickFilter.Key: names/{anahtar}
+function nickKey(n) {
+  const up = { "Ç": "ç", "Ğ": "ğ", "İ": "i", "Ö": "ö", "Ş": "ş", "Ü": "ü" }, leet = { 0: "o", 1: "i", 2: "z", 3: "e", 4: "a", 5: "s", 6: "g", 7: "t", 8: "b", 9: "g" };
+  const fold = { "ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u" };
+  let out = "";
+  for (let c of String(n || "")) {
+    c = up[c] || c;
+    if (c >= "A" && c <= "Z") c = c.toLowerCase();
+    c = leet[c] || c;
+    if (" ._-".includes(c)) continue;
+    out += fold[c] || c;
+  }
+  return out;
+}
+function when(v) { const t = ts(v); return t ? new Date(t).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""; }
+
+async function loadReports() {
+  const note = $("reportNote");
+  try {
+    const f = await loadFirebase();
+    const snap = await f.fs.getDocs(f.fs.collection(f.db, "reports"));
+    const groups = new Map();
+    snap.docs.forEach((d) => {
+      const r = d.data();
+      if (!groups.has(r.target)) groups.set(r.target, { uid: r.target, n: 0, reasons: [0, 0, 0], nicks: new Set(), last: 0 });
+      const g = groups.get(r.target);
+      g.n++; g.reasons[r.reason] = (g.reasons[r.reason] || 0) + 1; g.nicks.add(r.nick); g.last = Math.max(g.last, ts(r.at));
+    });
+    reportRows = [...groups.values()];
+    await Promise.all(reportRows.map(async (g) => {
+      const p = await f.fs.getDoc(f.fs.doc(f.db, "profiles", g.uid));
+      g.profile = p.exists() ? p.data() : null;
+    }));
+    reportRows.sort((a, b) => b.n - a.n || b.last - a.last);
+    renderReports();
+    note.textContent = reportRows.length ? "" : "Bildirilen ad yok.";
+  } catch (e) {
+    $("reports").innerHTML = "";
+    note.innerHTML = `<span class="err">Bildirimler okunamadı: ${esc(e.code || e.message)}</span>` + (String(e.code).includes("permission") ? " (Firestore kurallarının yeni sürümü yayımlanmamış olabilir)" : "");
+  }
+}
+
+function renderReports() {
+  const rows = [...extraRows, ...reportRows];
+  if (!rows.length) { $("reports").innerHTML = ""; return; }
+  const now = Date.now();
+  const body = rows.map((g, i) => {
+    const p = g.profile;
+    const nick = p ? p.nick : [...(g.nicks || [])][0] || "";
+    const custom = p && p.key;
+    const lock = p && ts(p.lock) > now ? ts(p.lock) : 0;
+    const reasons = (g.reasons || []).map((c, k) => c ? `<span class="chip${k === 0 ? " bad" : ""}">${REASONS[k]} ×${c}</span>` : "").join("");
+    const shown = custom ? `<b>${esc(nick)}</b>` : `${esc(codeName(nick))} <span class="muted">(hazır ad)</span>`;
+    const acts = [];
+    if (p && custom) acts.push(`<button class="danger" data-act="reset7" data-i="${i}">Sıfırla, 7 gün kilit</button>`, `<button class="danger" data-act="resetX" data-i="${i}">Sıfırla, kalıcı kilit</button>`);
+    if (lock) acts.push(`<button data-act="unlock" data-i="${i}">Kilidi aç</button>`);
+    if (g.n) acts.push(`<button data-act="dismiss" data-i="${i}">${custom ? "Yoksay" : "Bildirimleri sil"}</button>`);
+    return `<tr><td>${shown}${p ? "" : ' <span class="muted">(profil yok)</span>'}<div class="muted">${esc(g.uid)}</div></td><td>${g.n || "-"}</td><td>${reasons}</td>
+      <td>${g.last ? when(g.last) : ""}</td><td>${lock ? (lock - now > 3000 * DAY ? "kalıcı" : when(lock)) : ""}</td><td><div class="acts">${acts.join("")}</div></td></tr>`;
+  }).join("");
+  $("reports").innerHTML = `<thead><tr><th>Ad (şu anki)</th><th>Bildirim</th><th>Sebep</th><th>Son</th><th>Kilit</th><th></th></tr></thead><tbody>${body}</tbody>`;
+  $("reports").querySelectorAll("button[data-act]").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); act(b.dataset.act, rows[+b.dataset.i]); }; });
+}
+
+async function act(kind, g) {
+  if (demo) { alert("Örnek veri: gerçek bir işlem yapılmadı."); return; }
+  const f = await loadFirebase(), fs = f.fs, db = f.db;
+  const nick = g.profile ? g.profile.nick : "";
+  const code = forUid(g.uid);
+  const msg = kind === "reset7" ? `"${nick}" adı "${codeName(code)}" olsun ve 7 gün ad yazamasın mı?`
+    : kind === "resetX" ? `"${nick}" adı "${codeName(code)}" olsun ve bir daha ad yazamasın mı?`
+    : kind === "unlock" ? `"${codeName(nick)}" yeniden ad yazabilsin mi?` : `"${nick || g.uid}" için bildirimler silinsin mi? (ad kalır)`;
+  if (!confirm(msg)) return;
+  try {
+    const b = fs.writeBatch(db);
+    const prof = fs.doc(db, "profiles", g.uid);
+    if (kind === "reset7" || kind === "resetX") {
+      const cur = await fs.getDoc(prof);
+      if (cur.exists()) {
+        const old = cur.data().key || "";
+        b.update(prof, { nick: code, key: "", lock: fs.Timestamp.fromMillis(Date.now() + (kind === "reset7" ? 7 : 3650) * DAY), modAt: fs.serverTimestamp() });
+        if (old) b.delete(fs.doc(db, "names", old));
+      }
+      // Sıralama satırları: Kırık Taç, En Derin, bu ve geçen hafta (yalnız var olanlar; skor değişmez)
+      const week = Math.floor(Math.floor((Date.now() - Date.UTC(2024, 0, 1)) / DAY) / 7);
+      for (const row of ["campaign", "endless_best", "endless_w" + week, "endless_w" + (week - 1)]) {
+        const r = await fs.getDoc(fs.doc(db, "lb", row, "scores", g.uid));
+        if (r.exists() && r.data().name !== code) b.update(r.ref, { name: code });
+      }
+    }
+    if (kind === "unlock") b.update(prof, { lock: fs.deleteField() });
+    if (kind !== "unlock") {
+      const rs = await fs.getDocs(fs.query(fs.collection(db, "reports"), fs.where("target", "==", g.uid)));
+      rs.forEach((d) => b.delete(d.ref));
+    }
+    await b.commit();
+    extraRows = extraRows.filter((x) => x.uid !== g.uid);
+    $("reportNote").textContent = kind === "unlock" ? "Kilit açıldı." : kind === "dismiss" ? "Bildirimler silindi." : `Ad "${codeName(code)}" oldu; oyuncu oyunu açınca görecek.`;
+    await loadReports();
+  } catch (e) { $("reportNote").innerHTML = `<span class="err">Yapılamadı: ${esc(e.code || e.message)}</span>`; }
+}
+
+// Bildirilmemiş bir adı da bul (ad ya da oyuncu kimliği)
+$("findBtn").onclick = async () => {
+  const q = $("findName").value.trim();
+  if (!q || demo) return;
+  try {
+    const f = await loadFirebase(), fs = f.fs, db = f.db;
+    let uid = null;
+    const nm = await fs.getDoc(fs.doc(db, "names", nickKey(q) || "-"));
+    if (nm.exists()) uid = nm.data().uid;
+    else if (q.length >= 20) uid = q;
+    const p = uid ? await fs.getDoc(fs.doc(db, "profiles", uid)) : null;
+    if (!p || !p.exists()) { $("reportNote").textContent = `"${q}" bulunamadı.`; return; }
+    extraRows = [{ uid, n: 0, reasons: [0, 0, 0], nicks: new Set(), last: 0, profile: p.data() }];
+    $("reportNote").textContent = "";
+    renderReports();
+  } catch (e) { $("reportNote").innerHTML = `<span class="err">Aranamadı: ${esc(e.code || e.message)}</span>`; }
+};
+$("findName").onkeydown = (e) => { if (e.key === "Enter") $("findBtn").click(); };
+
+function fakeReports() {
+  extraRows = [];
+  reportRows = [
+    { uid: "demoA1b2C3d4E5f6G7h8I9j0K1l2", n: 4, reasons: [3, 0, 1], nicks: new Set(["Kral Dalyan"]), last: Date.now() - 3600000, profile: { nick: "Kral Dalyan", key: "kraldalyan" } },
+    { uid: "demoZ9y8X7w6V5u4T3s2R1q0P9o8", n: 2, reasons: [0, 2, 0], nicks: new Set(["Oyun Destek"]), last: Date.now() - 7200000, profile: { nick: "Oyun Destek", key: "oyundestek" } },
+    { uid: "demoM1n2B3v4C5x6Z7l8K9j0H1g2", n: 1, reasons: [1, 0, 0], nicks: new Set(["Gölge Avcı"]), last: Date.now() - 86400000, profile: { nick: "3.13.20", key: "", lock: Date.now() + 5 * DAY } },
+  ];
+  renderReports();
+  $("reportNote").textContent = "Örnek veri (gerçek değil).";
 }
 
 render();

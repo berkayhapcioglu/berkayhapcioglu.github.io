@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>King Legends Bot Paneli</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef; --surface: #fcfcfb; --line: #e3e1da; --ink: #0b0b0b; --ink2: #52514e; --ink3: #8a8983;
+  --bar: #2a78d6; --bar-soft: #cfe0f6; --good: #1f7a3a; --warn: #a86a00; --bad: #b3261e; --chip: #efeee9;
+  --good-soft: #e3f1e6; --warn-soft: #f7ecd6; --bad-soft: #f8e1df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --line: #2e2d2b; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+    --bar: #3987e5; --bar-soft: #23364f; --good: #5cc27a; --warn: #e0a43a; --bad: #ef7a72; --chip: #252523;
+    --good-soft: #1d2e22; --warn-soft: #33291a; --bad-soft: #3a2220;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --surface: #1a1a19; --line: #2e2d2b; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+  --bar: #3987e5; --bar-soft: #23364f; --good: #5cc27a; --warn: #e0a43a; --bad: #ef7a72; --chip: #252523;
+  --good-soft: #1d2e22; --warn-soft: #33291a; --bad-soft: #3a2220;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 18px 16px 8px; max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+h3 { font-size: 15px; margin: 14px 0 6px; }
+.sub { color: var(--ink2); font-size: 13px; margin: 0 0 12px; }
+main { max-width: 1200px; margin: 0 auto; padding: 0 16px 40px; }
+a { color: var(--bar); }
+button, select, .btn { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; text-decoration: none; display: inline-block; }
+button.primary { background: var(--bar); border-color: var(--bar); color: #fff; }
+button.on { border-color: var(--good); color: var(--good); }
+.bar-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 14px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.tile .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile .k { color: var(--ink2); font-size: 13px; }
+.tile .n { color: var(--ink3); font-size: 12px; }
+.tile.bad .v { color: var(--bad); } .tile.warn .v { color: var(--warn); } .tile.good .v { color: var(--good); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; margin-top: 12px; }
+.botgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-top: 10px; }
+.bot { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--bg); min-width: 0; }
+.bot.calisiyor, .bot.basliyor { border-left: 4px solid var(--good); }
+.bot.takildi { border-left: 4px solid var(--warn); }
+.bot.durdu { border-left: 4px solid var(--bad); }
+.bot .top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.bot .ttl { font-weight: 650; overflow-wrap: anywhere; }
+.bot .row { font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+.bot .row b { color: var(--ink2); font-weight: 600; }
+.bot .role { font-size: 12px; color: var(--ink3); margin-top: 2px; }
+.prog { height: 6px; background: var(--chip); border-radius: 4px; margin-top: 8px; overflow: hidden; }
+.prog div { height: 100%; background: var(--bar); border-radius: 4px; }
+.foot { font-size: 12px; color: var(--ink3); margin-top: 8px; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: var(--chip); color: var(--ink2); margin: 1px 3px 1px 0; white-space: nowrap; }
+.chip.bad { color: var(--bad); background: var(--bad-soft); } .chip.warn { color: var(--warn); background: var(--warn-soft); } .chip.good { color: var(--good); background: var(--good-soft); }
+.chip.plain { background: transparent; border: 1px solid var(--line); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--ink2); font-weight: 600; position: sticky; top: 0; background: var(--surface); white-space: nowrap; }
+#runs tbody tr { cursor: pointer; }
+#runs tbody tr:hover, #runs tbody tr.sel { background: var(--chip); }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.nw { white-space: nowrap; }
+.scroll { overflow: auto; max-height: 560px; }
+.mono { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; background: var(--chip); border-radius: 8px; padding: 8px; max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+details > summary { cursor: pointer; color: var(--ink2); font-size: 13px; margin-top: 6px; }
+details.card > summary { font-size: 15px; font-weight: 650; color: var(--ink); margin: 0; }
+.muted { color: var(--ink3); } .err { color: var(--bad); }
+.find { border-top: 1px solid var(--line); padding: 8px 0; font-size: 13px; }
+.find:first-child { border-top: 0; }
+.find .t { font-weight: 600; overflow-wrap: anywhere; }
+.find.fa .t { text-decoration: line-through; color: var(--ink3); }
+.find .d { color: var(--ink2); margin-top: 2px; overflow-wrap: anywhere; }
+.find ol { margin: 4px 0 0 18px; padding: 0; color: var(--ink2); }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.filters button { padding: 4px 10px; font-size: 13px; }
+.filters button.act { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.filters input { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 10px; min-width: 160px; flex: 1; max-width: 300px; }
+.md { font-size: 14px; overflow-wrap: anywhere; }
+.md table { margin: 8px 0; display: block; overflow-x: auto; }
+.md td, .md th { white-space: nowrap; }
+.md h3, .md h4 { margin: 14px 0 6px; }
+.md ul, .md ol { padding-left: 20px; }
+.md blockquote { margin: 8px 0; padding: 4px 10px; border-left: 3px solid var(--line); color: var(--ink2); }
+.md code { background: var(--chip); border-radius: 4px; padding: 0 4px; font-size: 12px; }
+.md pre { background: var(--chip); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; }
+.about { font-size: 14px; color: var(--ink2); }
+.about dt { font-weight: 650; color: var(--ink); margin-top: 10px; }
+.about dd { margin: 2px 0 0 0; }
+.banner { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: 13px; }
+.note { font-size: 12px; color: var(--ink3); margin-top: 6px; }
+@media (max-width: 520px) {
+  .botgrid { grid-template-columns: 1fr; }
+  .tile .v { font-size: 22px; }
+  .hide-s { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>King Legends · Bot Paneli</h1>
+    <div class="sub" id="status">Botları görmek için Google hesabınla giriş yap.</div>
+  </div>
+  <div class="bar-row">
+    <a class="btn" href="./index.html">Oyuncu Paneli</a>
+    <button id="live" class="on" title="Mac her dakika yeni durumu yollar; açıkken sayfa kendiliğinden yenilenir">Canlı</button>
+    <button id="reload">Yenile</button>
+    <button id="signin" class="primary">Google ile giriş</button>
+  </div>
+</header>
+<main>
+  <div id="banners"></div>
+  <div class="tiles" id="tiles"></div>
+  <div id="machine"></div>
+
+  <details class="card" id="about">
+    <summary>Botlar ne yapar? Bu sayfa nasıl okunur?</summary>
+    <dl class="about">
+      <dt>QA botu (hata avcısı)</dt>
+      <dd>Oyunu gerçek bir parmak gibi kullanır: her ekranı açar, her düğmeye basar, listeleri kaydırır, savaşa girer, saati ileri alır.
+        Aradığı şeyler: <b>haksızlık</b> (bir işlem oyuncuya fazladan altın ya da elmas kaybettiriyor mu), hata ve donma, kutusuna sığmayan
+        ya da üst üste binen yazı, eksik çeviri, kayıt kaybı. Her TestFlight yüklemesinden önce <b>QA kapısı</b> olarak çalışır:
+        kritik ya da yüksek bir bulgu varsa yükleme yapılmaz.</dd>
+      <dt>Denge botu (oyuncu taklitçisi)</dt>
+      <dd>Oyunu kendi kendine, penceresiz ve hızlandırılmış oynar; farklı oyuncu tiplerini taklit eder. Ölçtüğü şeyler: bölümler kaç dakikada
+        geçiliyor, nerede ölünüyor, bosslar ne kadar zor, altın ve ödüller yetiyor mu. Her yeni özellik sana gelmeden önce bu botlarla denenir.</dd>
+      <dt>Oyuncu tipleri</dt>
+      <dd><span class="chip plain">dengeli</span> ortalama oyuncu · <span class="chip plain">aceleci</span> okumadan seçer, bossa yürür ·
+        <span class="chip plain">dikkatli</span> savunmacı, gerekirse kasar · <span class="chip plain">yukseltmesiz</span> hiç yükseltme almaz
+        (duvara dayanması beklenir) · <span class="chip plain">reklamci</span> her ödüllü reklamı izler</dd>
+      <dt>Durumlar</dt>
+      <dd><span class="chip good">Çalışıyor</span> şu an oynuyor · <span class="chip warn">Takıldı mı?</span> süreç açık ama 10 dakikadır
+        hiçbir şey yazmadı · <span class="chip bad">Yarıda kaldı</span> oyun çöktü ya da durduruldu · <span class="chip">Bitti</span></dd>
+      <dt>Önem dereceleri</dt>
+      <dd><span class="chip bad">kritik</span> <span class="chip bad">yüksek</span> düzeltilmeden yayına çıkmaz · <span class="chip warn">orta</span>
+        düzeltilir · <span class="chip">düşük</span> <span class="chip">bilgi</span> not alınır. Üstü çizili bulgu: Claude baktı, botun yanlış alarmı.
+        <span class="chip good">beklenen ✓</span> öz-denetim: bot bilerek bozulan bir şeyi yakaladı, yani bekçi çalışıyor.</dd>
+      <dt>Veri nereden geliyor?</dt>
+      <dd>Mac'teki botların yazdığı kayıt dosyaları dakikada bir buraya yollanır. Turun yorumu (Bulgular raporu) botları çalıştıran Claude'un
+        notudur. Ekran görüntüleri ve tüm sayılar depoda (Docs/qa, Docs/playtest-*) durur.</dd>
+    </dl>
+  </details>
+
+  <div class="card">
+    <h2>Şu an çalışanlar ve son 48 saat</h2>
+    <div class="sub" id="botsSub">Her kart bir bot: görevi, şu an nerede olduğu, ne yaptığı, nerede takıldığı ve ne bulduğu.</div>
+    <div class="filters" id="botFilters"></div>
+    <div class="botgrid" id="bots"></div>
+  </div>
+
+  <div class="card">
+    <h2>Turlar</h2>
+    <div class="sub">Bir tur aynı anda başlatılan bot grubudur. Bir satıra tıkla: turun görevi, her botun ne yaptığı, bulguları ve Claude'un raporu.</div>
+    <div class="filters" id="runFilters"></div>
+    <div class="scroll"><table id="runs"></table></div>
+    <div id="drill"></div>
+  </div>
+
+  <div class="card">
+    <h2>Son bulgular</h2>
+    <div class="sub">Son 48 saatte çalışan botların bulduğu her şey, önemlisi önde. Ayrıntı ve adım adım tekrar: turun satırına tıkla.</div>
+    <div id="feed"></div>
+  </div>
+  <p class="note">Veri: Mac'teki Tools/bot_status.py botların kayıt dosyalarını okur. Yerel panelde doğrudan bu Mac'ten gelir; çevrimiçi panelde
+    Firestore "players" içindeki channel = "bots" kartlarından (okuma yalnızca panel yöneticisine açık). Ayrıntı: Docs/bot-panel.md.</p>
+</main>
+<script type="module">
+const cfg = { apiKey: "AIzaSyDBRXQOiG5z9BuBcyJz5s4RvtXoLkwuiwI", authDomain: "king-legends.firebaseapp.com", projectId: "king-legends" };
+const $ = (id) => document.getElementById(id);
+const MIN = 60000, HOUR = 3600000, DAY = 86400000;
+const KIND = { qa: "QA botu", pt: "Denge botu", karma: "Karma" };
+const STATUS = { calisiyor: ["Çalışıyor", "good"], basliyor: ["Başlıyor", "good"], takildi: ["Takıldı mı?", "warn"], durdu: ["Yarıda kaldı", "bad"], bitti: ["Bitti", ""] };
+const SEV = { kritik: 0, "yüksek": 1, orta: 2, "düşük": 3, bilgi: 4 };
+const NOT_REAL = ["yanlış alarm", "beklenen"];
+const sevCls = (s) => (s === "kritik" || s === "yüksek") ? "bad" : s === "orta" ? "warn" : "";
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+const sevRank = (s) => own(SEV, s) ? SEV[s] : 9;
+const kindName = (k) => own(KIND, k) ? KIND[k] : k;
+const params = new URLSearchParams(location.search);
+// ?src= yalnızca bu sitedeki bir dosyayı açar (yerel panelde data.json); başka siteden JSON yüklenmez
+function sameOrigin(s) { try { return new URL(s, location.href).origin === location.origin; } catch (e) { return false; } }
+const SRC_ASKED = params.get("src");
+const SRC = SRC_ASKED && sameOrigin(SRC_ASKED) ? SRC_ASKED : null;
+const LOCAL = !!SRC && params.get("yerel") === "1";   // Mac'teki yerel panel (python3 Tools/bot_status.py --web)
+
+let fb = null, fleets = [], runs = [], unsub = null, live = true, selRun = null, botFilter = "all", runFilter = "all", runFind = "";
+const runCache = {};
+
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function setStatus(t, bad) { $("status").textContent = t; $("status").className = "sub" + (bad ? " err" : ""); }
+function ago(ms) {
+  if (!ms) return "";
+  const d = Date.now() - ms;
+  if (d < 90 * 1000) return "az önce";
+  if (d < HOUR) return Math.round(d / MIN) + " dk önce";
+  if (d < DAY) return Math.round(d / HOUR) + " sa önce";
+  const t = new Date(ms);
+  if (d < 7 * DAY) return t.toLocaleDateString("tr-TR", { weekday: "long" }) + " " + t.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+  return t.toLocaleDateString("tr-TR", { day: "numeric", month: "short" }) + " " + t.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+}
+function dur(ms) {
+  if (!ms || ms < 0) return "";
+  const m = Math.round(ms / MIN);
+  if (m < 60) return m + " dk";
+  const h = Math.floor(m / 60);
+  return h + " sa" + (m % 60 ? " " + (m % 60) + " dk" : "");
+}
+function chip(text, cls) { return `<span class="chip ${esc(cls || "")}">${esc(text)}</span>`; }
+function statusChip(s) { const [t, c] = own(STATUS, s) ? STATUS[s] : [s, ""]; return chip(t, c); }
+
+// ---------------------------------------------------------------- gelen veriyi temizle
+// Firestore'da imzalı herhangi biri (anonim de) channel "bots" belgesi yazabilir. Bu yüzden gelen her alan beklenen türe
+// zorlanır: sayı olması gereken yere yazı, yazı olması gereken yere nesne gelmez, belge adları tek parça olur.
+// Ekrana basılan her değer ayrıca esc()'ten geçer.
+const N = (x) => { const n = typeof x === "number" ? x : typeof x === "string" && x.trim() ? Number(x) : NaN; return Number.isFinite(n) ? n : 0; };
+const S = (x, max = 2000) => (typeof x === "string" ? x : typeof x === "number" && Number.isFinite(x) ? String(x) : "").slice(0, max);
+const A = (x, max = 500) => Array.isArray(x) ? x.slice(0, max) : [];
+const O = (x) => x && typeof x === "object" && !Array.isArray(x) ? x : {};
+const SA = (x, n, len) => A(x, n).map((s) => S(s, len)).filter(Boolean);
+const ID = (x) => { const s = S(x, 160); return /^[A-Za-z0-9_-]+$/.test(s) ? s : ""; };
+
+function cleanFind(f) {
+  f = O(f);
+  return { sev: S(f.sev, 20), kind: S(f.kind, 40), verdict: S(f.verdict, 40), title: S(f.title, 300), where: S(f.where, 200),
+    bot: S(f.bot, 200), detail: S(f.detail, 1500), note: S(f.note, 1500), count: N(f.count), steps: SA(f.steps, 12, 300) };
+}
+function cleanBot(b) {
+  b = O(b);
+  const s = O(b.stats);
+  return { id: S(b.id, 300), name: S(b.name, 200), kind: S(b.kind, 10), profile: S(b.profile, 80), role: S(b.role, 400),
+    flags: SA(b.flags, 20, 80), task: S(b.task, 400), status: S(b.status, 20), where: S(b.where, 400), whereSum: S(b.whereSum, 400),
+    did: S(b.did, 400), finishedText: S(b.finishedText, 400), last: SA(b.last, 20, 400), stuck: SA(b.stuck, 10, 200),
+    found: A(b.found, 60).map(cleanFind), foundN: N(b.foundN), progress: N(b.progress),
+    stats: { bestIdx: N(s.bestIdx), target: N(s.target), minutes: N(s.minutes), limit: N(s.limit) },
+    started: N(b.started), updated: N(b.updated), cpu: N(b.cpu), memMb: N(b.memMb), pid: N(b.pid), runName: S(b.runName, 120) };
+}
+function cleanRun(r) {
+  r = O(r);
+  return { key: S(r.key, 300), name: S(r.name, 120), kind: S(r.kind, 10), status: S(r.status, 20), task: S(r.task, 400),
+    summary: S(r.summary, 600), verdict: S(r.verdict, 20), commit: S(r.commit, 40), doc: ID(r.doc), aliases: SA(r.aliases, 20, 120),
+    fps: SA(r.fps, 400, 40), top: SA(r.top, 3, 200), running: N(r.running), botCount: N(r.botCount), found: N(r.found),
+    foundHigh: N(r.foundHigh), started: N(r.started), updated: N(r.updated), published: r.published === true };
+}
+function cleanFleet(j, uid) {
+  j = O(j);
+  return { uid: ID(uid) || "?", host: S(j.host, 80) || "Mac", at: N(j.at), running: N(j.running), runningQa: N(j.runningQa),
+    runningPt: N(j.runningPt), orphans: N(j.orphans), cpus: N(j.cpus), load: A(j.load, 3).map(N),
+    builds: A(j.builds, 6).map((b) => ({ what: S(O(b).what, 120), project: S(O(b).project, 120), elapsed: N(O(b).elapsed) })),
+    pipes: A(j.pipes, 6).map((p) => ({ what: S(O(p).what, 120), elapsed: N(O(p).elapsed) })),
+    bots: A(j.bots, 120).map(cleanBot), runs: A(j.runs, 200).map(cleanRun) };
+}
+function cleanRunDoc(d) {
+  d = O(d);
+  const g = O(d.gate);
+  return { task: S(d.task, 400), summary: S(d.summary, 2000), report: S(d.report, 200000),
+    gate: { verdict: S(g.verdict, 20), commit: S(g.commit, 40), blocking: SA(g.blocking, 20, 300) },
+    bots: A(d.bots, 200).map(cleanBot), events: A(d.events, 500).map(cleanFind) };
+}
+
+// ---------------------------------------------------------------- veri
+
+async function loadFirebase() {
+  if (fb) return fb;
+  const v = "10.12.2";
+  const app = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const auth = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-auth.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`);
+  const a = app.initializeApp(cfg);
+  fb = { auth, fs, authI: auth.getAuth(a), db: fs.getFirestore(a) };
+  auth.onAuthStateChanged(fb.authI, (u) => {
+    if (u) { $("signin").textContent = "Çıkış"; subscribe(); }
+    else { $("signin").textContent = "Google ile giriş"; stop(); }
+  });
+  return fb;
+}
+
+function stop() { if (unsub) { unsub(); unsub = null; } }
+
+function subscribe() {
+  const f = fb;
+  stop();
+  setStatus("Yükleniyor…");
+  const q = f.fs.query(f.fs.collection(f.db, "players"), f.fs.where("channel", "==", "bots"));
+  const onSnap = (snap) => { ingest(snap.docs.map((d) => ({ ...d.data(), uid: d.id }))); };
+  const onErr = (e) => setStatus("Okunamadı: " + (e.code || e.message) + (String(e.code).includes("permission") ? " (Firestore kuralı bu hesaba okuma izni vermiyor)" : ""), true);
+  if (live) unsub = f.fs.onSnapshot(q, onSnap, onErr);
+  else f.fs.getDocs(q).then(onSnap, onErr);
+}
+
+function ingest(docs) {
+  fleets = [];
+  for (const d of docs) {
+    let j = {};
+    try { j = typeof d.json === "string" ? JSON.parse(d.json) : d; } catch (e) { continue; }
+    if (O(j).off) continue;   // bu Mac Firebase'e yollamayı kapattı
+    fleets.push(cleanFleet(j, d.uid || O(j).uid));
+  }
+  fleets.sort((a, b) => (b.at || 0) - (a.at || 0));
+  runs = mergeRuns(fleets);
+  const who = LOCAL ? "bu Mac" : SRC ? "dosya: " + SRC : (fb && fb.authI.currentUser ? "giriş: " + fb.authI.currentUser.email : "");
+  setStatus(fleets.length ? `Güncellendi ${new Date().toLocaleTimeString("tr-TR")} · ${who}` : "Henüz bot verisi yok: Mac'te toplayıcı kurulunca dakikada bir gelecek. " + who);
+  render();
+}
+
+// Aynı tur hem Mac'ten (canlı klasör) hem depodan (yayınlanan kopya) gelebilir: ortak bot imzası (fp) olanlar tek tur
+function mergeRuns(fs) {
+  const all = [];
+  fs.forEach((f) => (f.runs || []).forEach((r) => all.push({ ...r, uid: f.uid, host: f.host, fleetAt: f.at || 0 })));
+  const parent = all.map((_, i) => i);
+  const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const byFp = {}, byKey = {};
+  all.forEach((r, i) => {
+    for (const fp of r.fps || []) { if (fp in byFp) parent[find(i)] = find(byFp[fp]); else byFp[fp] = i; }
+    if (r.key in byKey) parent[find(i)] = find(byKey[r.key]); else byKey[r.key] = i;
+  });
+  const groups = {};
+  all.forEach((r, i) => (groups[find(i)] ||= []).push(r));
+  return Object.values(groups).map((g) => {
+    g.sort((a, b) => (b.running - a.running) || ((a.published ? 1 : 0) - (b.published ? 1 : 0)) || (b.fleetAt - a.fleetAt) || (b.updated - a.updated));
+    const p = { ...g[0] };
+    p.refs = g.filter((r) => r.doc).map((r) => ({ uid: r.uid, doc: r.doc, host: r.host }));
+    p.aliases = [...new Set(g.flatMap((r) => [r.name, ...(r.aliases || [])]))].filter((n) => n !== p.name);
+    if (!p.summary) p.summary = (g.find((r) => r.summary) || {}).summary || "";
+    if (!p.task) p.task = (g.find((r) => r.task) || {}).task || "";
+    return p;
+  }).sort((a, b) => (b.running - a.running) || (b.updated - a.updated));
+}
+
+function liveBots() {
+  const seen = new Set(), out = [];
+  for (const f of fleets) for (const b of f.bots || []) {
+    const k = f.uid + b.id;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ ...b, host: f.host, fleetAt: f.at, uid: f.uid });
+  }
+  const order = { takildi: 0, calisiyor: 1, basliyor: 2, durdu: 3, bitti: 4 };
+  return out.sort((a, b) => (order[a.status] ?? 5) - (order[b.status] ?? 5) || (b.updated - a.updated));
+}
+
+// ---------------------------------------------------------------- çizim
+
+function render() {
+  renderBanners();
+  renderTiles();
+  renderMachine();
+  renderBots();
+  renderRuns();
+  renderFeed();
+  if (selRun) { const r = runs.find((x) => x.key === selRun || (x.aliases || []).includes(selRun)); if (r) openRun(r, true); }
+}
+
+function renderBanners() {
+  const out = [];
+  for (const f of fleets) {
+    const age = Date.now() - (f.at || 0);
+    if (f.running > 0 && age > 10 * MIN) out.push(`${esc(f.host)}'ten ${dur(age)}dır haber yok, oysa son haberde ${esc(f.running)} bot çalışıyordu. Mac uykuda ya da internetsiz olabilir; botlar çalışmaya devam ediyor olabilir.`);
+  }
+  if (SRC && !LOCAL) out.push("Bu görünüm bir dosyadan (" + esc(SRC) + "): canlı değil.");
+  $("banners").innerHTML = out.map((t) => `<div class="banner">${t}</div>`).join("") +
+    (LOCAL ? `<div class="sub" style="margin-top:8px">Yerel panel: bu Mac'teki botlar, dakikada bir kendiliğinden yenilenir. Veri internete gitmez.</div>` : "");
+}
+
+function renderTiles() {
+  const fresh = fleets.filter((f) => Date.now() - (f.at || 0) < 15 * MIN);
+  const running = fresh.reduce((s, f) => s + (f.running || 0), 0);
+  const qa = fresh.reduce((s, f) => s + (f.runningQa || 0), 0), pt = fresh.reduce((s, f) => s + (f.runningPt || 0), 0);
+  const bots = liveBots();
+  const stuck = bots.filter((b) => b.status === "takildi").length;
+  const crashed = bots.filter((b) => b.status === "durdu").length;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const doneToday = runs.filter((r) => r.status === "bitti" && r.updated >= today.getTime() && !r.published).length;
+  const high = bots.reduce((s, b) => s + (b.found || []).filter((f) => (f.sev === "kritik" || f.sev === "yüksek") && !NOT_REAL.includes(f.verdict)).length, 0);
+  const newest = fleets[0];
+  const tiles = [
+    ["Şu an çalışan bot", running, `QA ${qa} · Denge ${pt}`, running ? "good" : ""],
+    ["Takıldı mı?", stuck, "10 dk'dır ses yok", stuck ? "warn" : ""],
+    ["Yarıda kalan", crashed, "son 48 saat", crashed ? "bad" : ""],
+    ["Bugün biten tur", doneToday, `toplam ${runs.length} tur kayıtlı`, ""],
+    ["Önemli bulgu", high, "kritik + yüksek, son 48 saat", high ? "bad" : ""],
+    ["Son haber", newest ? ago(newest.at) : "yok", newest ? newest.host + (newest.load.length ? ` · yük ${newest.load[0]}/${newest.cpus || "?"}` : "") : "Mac henüz yollamadı", ""],
+  ];
+  $("tiles").innerHTML = tiles.map(([k, v, n, c]) => `<div class="tile ${esc(c)}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="n">${esc(n)}</div></div>`).join("");
+}
+
+function renderMachine() {
+  const parts = [];
+  for (const f of fleets) {
+    if (Date.now() - (f.at || 0) > 15 * MIN) continue;
+    const items = [];
+    for (const b of f.builds || []) items.push(`${chip("derleniyor", "warn")} ${esc(b.what)} (${esc(b.project)}, ${dur(b.elapsed * 1000)})`);
+    for (const p of f.pipes || []) items.push(`${chip("çalışıyor", "good")} ${esc(p.what)} (${dur(p.elapsed * 1000)})`);
+    if (f.orphans) items.push(`${chip(f.orphans + " bot", "")} çıktı klasörü bilinmeyen bot süreci`);
+    if (items.length && f.load.length) items.push(`<span class="muted">Mac yükü ${esc(f.load[0])} (${esc(f.cpus || "?")} çekirdek)</span>`);
+    if (items.length) parts.push(`<div class="card"><h2>${esc(f.host)} şu an</h2><div class="sub">${items.join(" &nbsp;·&nbsp; ")}</div></div>`);
+  }
+  $("machine").innerHTML = parts.join("");
+}
+
+function botTitle(b) {
+  const who = b.kind === "qa" ? (b.profile ? b.profile + " kayıt" : "") : b.profile;
+  return `${own(KIND, b.kind) ? KIND[b.kind] : "Bot"}${who ? " · " + who : ""}`;
+}
+
+function foundChips(list, n) {
+  const c = {};
+  for (const f of list || []) if (!NOT_REAL.includes(f.verdict)) c[f.sev] = (c[f.sev] || 0) + 1;
+  const keys = Object.keys(c).sort((a, b) => sevRank(a) - sevRank(b));
+  if (!keys.length) return n ? `<span class="muted">${esc(n)} bulgu (hepsi yanlış alarm ya da beklenen)</span>` : `<span class="muted">bir şey bulmadı</span>`;
+  return keys.map((k) => chip(`${c[k]} ${k}`, sevCls(k))).join("") + (n > (list || []).length ? `<span class="muted"> +${esc(n - (list || []).length)}</span>` : "");
+}
+
+function progressText(b) {
+  const s = b.stats || {};
+  if (b.kind === "pt" && s.bestIdx) {
+    const st = (i) => `${Math.floor((i - 1) / 10) + 1}-${((i - 1) % 10) + 1}`;
+    return `en ileri ${st(s.bestIdx)} / hedef ${st(s.target || 100)}`;
+  }
+  if (b.kind === "qa" && s.limit) return `${s.minutes || 0} / ${s.limit} dk`;
+  return "";
+}
+
+function botCard(b) {
+  const flags = (b.flags || []).map((x) => chip(x, "plain")).join("");
+  const now = b.where ? `<div class="row"><b>Şu an:</b> ${esc(b.where)}</div>` : "";
+  const sum = b.whereSum ? `<div class="row">${esc(b.whereSum)}</div>` : "";
+  const stuck = (b.stuck || []).length ? `<div class="row"><b>Takıldığı yerler:</b> ${(b.stuck || []).map(esc).join(" · ")}</div>` : "";
+  const top = (b.found || []).filter((f) => !NOT_REAL.includes(f.verdict)).slice(0, 2).map((f) => `<div class="row">${chip(f.sev, sevCls(f.sev))}${esc(f.title)}${f.count > 1 ? ` <span class="muted">×${esc(f.count)}</span>` : ""}</div>`).join("");
+  const pr = progressText(b);
+  const bar = b.progress ? `<div class="prog" title="${esc(pr)}"><div style="width:${esc(Math.round(Math.max(0, Math.min(1, b.progress)) * 100))}%"></div></div>` : "";
+  const res = b.pid ? ` · işlemci %${esc(Math.round(b.cpu || 0))} · ${esc(b.memMb || 0)} MB` : "";
+  return `<div class="bot ${esc(b.status)}">
+    <div class="top"><div class="ttl">${esc(botTitle(b))} <span class="muted">· ${esc(b.runName || "")}${b.name && b.name !== b.profile ? " / " + esc(b.name) : ""}</span></div>${statusChip(b.status)}</div>
+    ${b.task ? `<div class="row"><b>Görev:</b> ${esc(b.task)}</div>` : ""}
+    <div class="role">${esc(b.role || "")}</div>
+    ${flags ? `<div class="row">${flags}</div>` : ""}
+    ${now}${sum}
+    ${bar}${pr ? `<div class="foot" style="margin-top:2px">${esc(pr)}</div>` : ""}
+    ${b.did ? `<div class="row"><b>Yaptı:</b> ${esc(b.did)}</div>` : ""}
+    ${stuck}
+    <div class="row"><b>Buldu:</b> ${foundChips(b.found, b.foundN)}</div>
+    ${top}
+    ${(b.last || []).length ? `<details><summary>Son yaptıkları</summary><div class="mono">${(b.last || []).map(esc).join("\n")}</div></details>` : ""}
+    <div class="foot">başladı ${ago(b.started)} · son yazdığı ${ago(b.updated)}${res} · ${esc(b.host || "")}</div>
+  </div>`;
+}
+
+function renderBots() {
+  const all = liveBots();
+  const counts = { all: all.length, live: all.filter((b) => ["calisiyor", "takildi", "basliyor"].includes(b.status)).length,
+    qa: all.filter((b) => b.kind === "qa").length, pt: all.filter((b) => b.kind === "pt").length,
+    sorun: all.filter((b) => b.status === "takildi" || b.status === "durdu").length };
+  const labels = { all: "Hepsi", live: "Çalışanlar", qa: "QA", pt: "Denge", sorun: "Sorunlu" };
+  $("botFilters").innerHTML = Object.keys(labels).map((k) => `<button data-f="${k}" class="${botFilter === k ? "act" : ""}">${labels[k]} ${counts[k]}</button>`).join("");
+  $("botFilters").querySelectorAll("button").forEach((b) => b.onclick = () => { botFilter = b.dataset.f; renderBots(); });
+  const list = all.filter((b) => botFilter === "all" || (botFilter === "live" && ["calisiyor", "takildi", "basliyor"].includes(b.status)) ||
+    (botFilter === "sorun" && (b.status === "takildi" || b.status === "durdu")) || b.kind === botFilter);
+  $("bots").innerHTML = list.length ? list.map(botCard).join("") : `<div class="muted">${fleets.length ? "Son 48 saatte çalışan bot yok. Geçmiş turlar aşağıda." : "Bot verisi bekleniyor."}</div>`;
+}
+
+function renderRuns() {
+  const labels = { all: "Hepsi", qa: "QA", pt: "Denge", found: "Önemli bulgusu olan", live: "Çalışan" };
+  $("runFilters").innerHTML = Object.keys(labels).map((k) => `<button data-f="${k}" class="${runFilter === k ? "act" : ""}">${labels[k]}</button>`).join("") +
+    `<input id="runFind" placeholder="Tur adı ya da görev ara" value="${esc(runFind)}" autocomplete="off">`;
+  $("runFilters").querySelectorAll("button").forEach((b) => b.onclick = () => { runFilter = b.dataset.f; renderRuns(); });
+  const inp = $("runFind");
+  inp.oninput = () => { runFind = inp.value; drawRunRows(); };
+  drawRunRows();
+}
+
+function drawRunRows() {
+  const q = runFind.trim().toLocaleLowerCase("tr");
+  const list = runs.filter((r) => (runFilter === "all" || r.kind === runFilter || (runFilter === "found" && r.foundHigh > 0) || (runFilter === "live" && r.running > 0)) &&
+    (!q || [r.name, r.task, r.summary, ...(r.aliases || [])].join(" ").toLocaleLowerCase("tr").includes(q)));
+  const head = `<thead><tr><th>Tur</th><th>Tür</th><th>Durum</th><th class="hide-s">Görev / özet</th><th>Bot</th><th>Bulgu</th><th class="hide-s">Başladı</th><th>Son</th></tr></thead>`;
+  const rows = list.map((r) => {
+    const verdict = r.verdict ? chip("kapı " + r.verdict.toLocaleLowerCase("tr"), r.verdict === "GEÇTİ" ? "good" : "bad") : "";
+    const found = r.foundHigh ? chip(r.foundHigh + " önemli", "bad") + `<span class="muted">/${esc(r.found)}</span>` : (r.found ? esc(r.found) : `<span class="muted">0</span>`);
+    const desc = r.task || r.summary || (r.top || [])[0] || "";
+    return `<tr data-k="${esc(r.key)}" class="${selRun === r.key ? "sel" : ""}"><td class="nw"><b>${esc(r.name)}</b>${r.published ? "" : " " + chip("Mac", "plain")}</td>
+      <td class="nw">${esc(kindName(r.kind))}</td><td class="nw">${statusChip(r.status)}${r.running ? ` <span class="muted">${esc(r.running)} açık</span>` : ""} ${verdict}</td>
+      <td class="hide-s" style="min-width:220px">${esc(desc.length > 160 ? desc.slice(0, 159) + "…" : desc)}</td>
+      <td class="num">${esc(r.botCount)}</td><td class="num">${found}</td><td class="hide-s nw">${ago(r.started)}</td><td class="nw">${ago(r.updated)}</td></tr>`;
+  }).join("");
+  $("runs").innerHTML = head + `<tbody>${rows || `<tr><td colspan="8" class="muted">Tur yok.</td></tr>`}</tbody>`;
+  $("runs").querySelectorAll("tbody tr[data-k]").forEach((tr) => tr.onclick = () => { const r = runs.find((x) => x.key === tr.dataset.k); if (r) openRun(r); });
+}
+
+async function fetchRun(ref) {
+  const k = ref.uid + "/" + ref.doc;
+  if (runCache[k]) return runCache[k];
+  let doc = null;
+  if (SRC) { const rs = O(O(window.__dump).runs); doc = own(rs, ref.doc) ? cleanRunDoc(rs[ref.doc]) : null; }
+  else {
+    const s = await fb.fs.getDoc(fb.fs.doc(fb.db, "players", ref.uid, "sessions", ref.doc));
+    if (s.exists()) {
+      const d = s.data();
+      try { doc = cleanRunDoc(typeof d.json === "string" ? JSON.parse(d.json) : d); } catch (e) { doc = null; }
+    }
+  }
+  runCache[k] = doc;
+  return doc;
+}
+
+async function openRun(r, quiet) {
+  selRun = r.key;
+  if (!quiet) { drawRunRows(); $("drill").innerHTML = `<div class="muted" style="margin-top:12px">Yükleniyor…</div>`; }
+  let docs = [];
+  try { docs = (await Promise.all(r.refs.map(fetchRun))).filter(Boolean); }
+  catch (e) { $("drill").innerHTML = `<div class="err">Okunamadı: ${esc(e.code || e.message)}</div>`; return; }
+  if (!docs.length) { $("drill").innerHTML = `<div class="muted" style="margin-top:12px">Bu turun ayrıntısı henüz yollanmadı.</div>`; return; }
+  const d = docs[0];
+  const report = docs.map((x) => x.report || "").sort((a, b) => b.length - a.length)[0];
+  const bots = d.bots || [];
+  const events = d.events || [];
+  const gate = d.gate && d.gate.verdict ? `<div class="row">${chip("QA kapısı " + d.gate.verdict, d.gate.verdict === "GEÇTİ" ? "good" : "bad")}${d.gate.commit ? " commit " + esc(d.gate.commit) : ""}${(d.gate.blocking || []).length ? "<br>Durduran: " + d.gate.blocking.map(esc).join(" · ") : ""}</div>` : "";
+  const botRows = bots.map((b) => {
+    const st = (b.stuck || []).slice(0, 3).map(esc).join("<br>");
+    return `<tr><td class="nw"><b>${esc(b.name)}</b><div class="muted">${esc(b.profile || "")}</div></td><td class="nw">${statusChip(b.status)}</td>
+      <td style="min-width:200px">${esc(b.whereSum || b.finishedText || "")}${st ? `<div class="muted">${st}</div>` : ""}</td>
+      <td style="min-width:180px">${esc(b.did || "")}</td><td class="nw">${foundChips(b.found, b.foundN)}</td></tr>`;
+  }).join("");
+  const evs = events.slice().sort((a, b) => sevRank(a.sev) - sevRank(b.sev));
+  const findHtml = evs.length ? evs.slice(0, 200).map(findItem).join("") + (evs.length > 200 ? `<div class="muted">+${esc(evs.length - 200)} bulgu daha</div>` : "") : `<div class="muted">Bulgu yok.</div>`;
+  const lastLines = bots.filter((b) => (b.last || []).length).map((b) => `<details><summary>${esc(b.name)}: son yaptıkları</summary><div class="mono">${(b.last || []).map(esc).join("\n")}</div></details>`).join("");
+  $("drill").innerHTML = `<div class="card" style="background:var(--bg)">
+    <h2>${esc(r.name)} <span class="muted">· ${esc(kindName(r.kind))} · ${esc(bots.length)} bot</span></h2>
+    <div class="row">${statusChip(r.status)} ${r.started ? "başladı " + ago(r.started) + ", " : ""}${r.updated ? "son " + ago(r.updated) : ""}${r.aliases && r.aliases.length ? ` · diğer adı ${r.aliases.map(esc).join(", ")}` : ""}</div>
+    ${d.task || r.task ? `<div class="row"><b>Görev:</b> ${esc(d.task || r.task)}</div>` : ""}
+    ${gate}
+    ${d.summary ? `<div class="row" style="margin-top:8px">${esc(d.summary)}</div>` : ""}
+    <h3>Botlar</h3>
+    <div class="scroll" style="max-height:420px"><table><thead><tr><th>Bot</th><th>Durum</th><th>Nerede kaldı / takıldı</th><th>Ne yaptı</th><th>Buldu</th></tr></thead><tbody>${botRows}</tbody></table></div>
+    ${lastLines}
+    <h3>Bulgular (${evs.filter((e) => !NOT_REAL.includes(e.verdict)).length}${evs.some((e) => NOT_REAL.includes(e.verdict)) ? ` + ${evs.filter((e) => NOT_REAL.includes(e.verdict)).length} beklenen ya da yanlış alarm` : ""})</h3>
+    <div>${findHtml}</div>
+    ${report ? `<details ${evs.length ? "" : "open"}><summary><b>Claude'un raporu (bulgular.md)</b></summary><div class="md">${md(report)}</div></details>` : ""}
+  </div>`;
+  if (!quiet) $("drill").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function findItem(f) {
+  const fa = f.verdict === "yanlış alarm";
+  const vcls = f.verdict === "beklenen" ? "good" : f.verdict === "gerçek" ? "warn" : "";
+  const steps = (f.steps || []).length ? `<details><summary>Nasıl tekrarlanır</summary><ol>${f.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol></details>` : "";
+  return `<div class="find ${fa ? "fa" : ""}">
+    <div>${chip(f.sev || "?", sevCls(f.sev))}${f.kind ? chip(f.kind, "plain") : ""}${f.verdict ? chip(f.verdict === "beklenen" ? "beklenen ✓" : "Claude: " + f.verdict, vcls) : ""}<span class="t">${esc(f.title)}</span>${f.count > 1 ? ` <span class="muted">×${esc(f.count)}</span>` : ""}</div>
+    ${f.where || f.bot ? `<div class="d muted">${f.where ? esc(f.where) : ""}${f.where && f.bot ? " · " : ""}${f.bot ? "bot: " + esc(f.bot) : ""}</div>` : ""}
+    ${f.detail ? `<div class="d">${esc(f.detail)}</div>` : ""}
+    ${f.note ? `<div class="d"><b>Claude:</b> ${esc(f.note)}</div>` : ""}
+    ${steps}</div>`;
+}
+
+function renderFeed() {
+  const items = [];
+  for (const b of liveBots()) for (const f of b.found || []) items.push({ ...f, bot: `${botTitle(b)} · ${b.runName || ""}`, at: b.updated });
+  items.sort((a, b) => sevRank(a.sev) - sevRank(b.sev) || (b.at - a.at));
+  $("feed").innerHTML = items.length ? items.slice(0, 60).map(findItem).join("") : `<div class="muted">Son 48 saatte bulgu yok.</div>`;
+}
+
+// Küçük, güvenli markdown: başlık, liste, tablo, alıntı, kod, kalın; bağlantı ve görüntü yalnızca yazı olarak
+function md(src) {
+  const lines = String(src).replace(/\r/g, "").split("\n");
+  const out = [];
+  let i = 0;
+  const inline = (s) => esc(s)
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, (_, a) => `<span class="muted">(görüntü${a ? ": " + a : ""})</span>`)
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/(^|\s)_([^_]+)_(?=\s|$)/g, "$1<i>$2</i>");
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^```/.test(l)) {
+      const buf = []; i++;
+      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+      i++; out.push(`<pre>${esc(buf.join("\n"))}</pre>`); continue;
+    }
+    let m;
+    if ((m = l.match(/^(#{1,6})\s+(.*)$/))) { const n = Math.min(4, m[1].length + 1); out.push(`<h${n}>${inline(m[2])}</h${n}>`); i++; continue; }
+    if (/^\s*\|/.test(l)) {
+      const rows = [];
+      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(lines[i++]);
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const body = rows.filter((r) => !/^\s*\|?\s*:?-{2,}/.test(r));
+      out.push("<table>" + body.map((r, k) => "<tr>" + cells(r).map((c) => k === 0 ? `<th>${inline(c)}</th>` : `<td>${inline(c)}</td>`).join("") + "</tr>").join("") + "</table>");
+      continue;
+    }
+    if (/^\s*>/.test(l)) {
+      const buf = [];
+      while (i < lines.length && /^\s*>/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ""));
+      out.push(`<blockquote>${inline(buf.join(" "))}</blockquote>`); continue;
+    }
+    if (/^\s*([-*]|\d+\.)\s+/.test(l)) {
+      const ordered = /^\s*\d+\./.test(l);
+      const buf = [];
+      while (i < lines.length && (/^\s*([-*]|\d+\.)\s+/.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && buf.length))) {
+        const t = lines[i++];
+        if (/^\s*([-*]|\d+\.)\s+/.test(t)) buf.push(t.replace(/^\s*([-*]|\d+\.)\s+/, "")); else buf[buf.length - 1] += " " + t.trim();
+      }
+      out.push(`<${ordered ? "ol" : "ul"}>${buf.map((b) => `<li>${inline(b)}</li>`).join("")}</${ordered ? "ol" : "ul"}>`); continue;
+    }
+    if (/^\s*(-{3,}|\*{3,})\s*$/.test(l)) { out.push("<hr>"); i++; continue; }
+    if (!l.trim()) { i++; continue; }
+    const buf = [];
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|```|\s*\||\s*>|\s*([-*]|\d+\.)\s+)/.test(lines[i])) buf.push(lines[i++]);
+    out.push(`<p>${inline(buf.join(" "))}</p>`);
+  }
+  return out.join("\n");
+}
+
+// ---------------------------------------------------------------- düğmeler
+
+$("signin").onclick = async () => {
+  if (SRC) return;
+  try {
+    const f = await loadFirebase();
+    if (f.authI.currentUser) { await f.auth.signOut(f.authI); fleets = []; runs = []; render(); setStatus("Çıkış yapıldı."); return; }
+    await f.auth.signInWithPopup(f.authI, new f.auth.GoogleAuthProvider());
+  } catch (e) { setStatus("Giriş olmadı: " + (e.code || e.message), true); }
+};
+$("reload").onclick = () => { for (const k in runCache) delete runCache[k]; if (SRC) loadSrc(); else if (fb && fb.authI.currentUser) subscribe(); };
+$("live").onclick = () => {
+  live = !live;
+  $("live").classList.toggle("on", live);
+  $("live").textContent = live ? "Canlı" : "Canlı kapalı";
+  if (fb && fb.authI.currentUser) subscribe();
+  if (SRC && live) loadSrc();
+};
+setInterval(() => { if (fleets.length) { renderTiles(); renderBanners(); } }, 30000);
+
+async function loadSrc() {
+  for (const k in runCache) delete runCache[k];
+  try {
+    const r = await fetch(SRC, { cache: "no-store" });
+    window.__dump = O(await r.json());
+    ingest(A(window.__dump.fleets, 50).map((f) => ({ ...O(f), uid: ID(O(f).uid) || "dump" })));
+  } catch (e) { setStatus("Dosya okunamadı: " + e.message, true); }
+}
+
+if (SRC_ASKED && !SRC) setStatus("Bu sayfa yalnızca kendi sitesindeki bir dosyayı açar; verilen adres açılmadı.", true);
+else if (SRC) {
+  $("signin").style.display = "none";
+  if (LOCAL) document.querySelector('a.btn').href = "https://berkayhapcioglu.github.io/kinglegends/panel/";
+  loadSrc();
+  setInterval(() => { if (live) loadSrc(); }, 60000);
+}
+else loadFirebase().catch((e) => setStatus("Firebase yüklenemedi: " + e.message, true));
+</script>
+</body>
+</html>

@@ -69,7 +69,8 @@ tbody tr:hover { background: var(--chip); }
 button.danger { color: var(--bad); }
 #reportFind { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
 #reportFind input { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 10px; min-width: 220px; flex: 1; max-width: 360px; }
-#reports td { white-space: normal; }
+#reports td, #chatReports td { white-space: normal; }
+.quote { font-style: italic; color: var(--ink2); }
 </style>
 </head>
 <body>
@@ -94,6 +95,7 @@ button.danger { color: var(--bad); }
     <button id="reload">Yenile</button>
     <button id="signin" class="primary">Google ile giriş</button>
     <button id="demo">Örnek veri</button>
+    <a href="./bots.html" style="font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;text-decoration:none">Bot Paneli</a>
   </div>
 </header>
 <main>
@@ -111,6 +113,12 @@ button.danger { color: var(--bad); }
     <div id="reportFind"><input id="findName" placeholder="Ada ya da oyuncu kimliğine göre bul" autocomplete="off"><button id="findBtn">Bul</button></div>
     <div class="scroll"><table id="reports"></table></div>
     <div class="note" id="reportNote"></div>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>Sohbet şikayetleri</h2>
+    <div class="sub">Klan sohbetinde oyuncuların şikayet ettiği mesajlar (Apple kuralı: 24 saat içinde bakılmalı). Mesajlar süzgeçten geçer; kaçanı buraya düşer. <b>Sustur</b>: oyuncu süre bitene kadar hiçbir sohbete yazamaz. <b>Mesajları sil</b>: şikayet edilen mesajlar sohbetten kalkar. <b>Yoksay</b>: şikayetler silinir.</div>
+    <div class="scroll"><table id="chatReports"></table></div>
+    <div class="note" id="chatNote"></div>
   </div>
   <p class="note">Veri: Firestore "players" (oyuncu kartı, en sık 3 dakikada bir ve oyuncu oyundan çıkarken güncellenir). Toplu grafikler, tutunma ve gelir için Firebase konsolu &gt; Analytics de var. Kişisel bilgi yok: oyuncular rastgele Destek Kimliğiyle görünür.</p>
 </main>
@@ -159,7 +167,7 @@ $("signin").onclick = async () => {
   } catch (e) { setStatus("Giriş olmadı: " + (e.code || e.message), true); }
 };
 $("reload").onclick = () => demo ? render() : load();
-$("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); fakeReports(); };
+$("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); fakeReports(); fakeChatReports(); };
 $("channel").onchange = render;
 $("range").onchange = render;
 
@@ -176,6 +184,7 @@ async function load() {
     loadedAt = `${new Date().toLocaleString("tr-TR")} · giriş: ${f.authI.currentUser.email}`;
     render();
     loadReports();
+    loadChatReports();
   } catch (e) {
     setStatus("Okunamadı: " + (e.code || e.message) + (String(e.code).includes("permission") ? " (Firestore kuralı bu hesaba okuma izni vermiyor)" : ""), true);
   }
@@ -199,6 +208,7 @@ function norm(id, d) {
 function filtered() {
   const ch = $("channel").value, range = Number($("range").value), now = Date.now();
   return all.filter((p) => {
+    if (p.channel === "bots") return false;   // Bot Paneli kartları (bots.html), oyuncu değil
     if (ch === "real" && !(p.channel === "testflight" || p.channel === "appstore")) return false;
     if (ch !== "all" && ch !== "real" && p.channel !== ch) return false;
     if (range > 0 && p.first < now - range * DAY) return false;
@@ -540,6 +550,103 @@ function fakeReports() {
   ];
   renderReports();
   $("reportNote").textContent = "Örnek veri (gerçek değil).";
+}
+
+// ---- Sohbet şikayetleri (Firestore "chatReports", "mutes"; Docs/clans.md)
+const CHAT_REASONS = ["Küfür / hakaret", "Taciz / tehdit", "Spam", "Başka"];
+let chatRows = [];
+
+async function loadChatReports() {
+  const note = $("chatNote");
+  try {
+    const f = await loadFirebase();
+    const snap = await f.fs.getDocs(f.fs.collection(f.db, "chatReports"));
+    const groups = new Map();
+    snap.docs.forEach((d) => {
+      const r = d.data();
+      if (!groups.has(r.target)) groups.set(r.target, { uid: r.target, name: r.name, n: 0, reasons: [0, 0, 0, 0], msgs: new Map(), last: 0, ids: [] });
+      const g = groups.get(r.target);
+      g.n++; g.reasons[r.reason] = (g.reasons[r.reason] || 0) + 1; g.last = Math.max(g.last, ts(r.at)); g.ids.push(d.id);
+      if (!g.msgs.has(r.msg)) g.msgs.set(r.msg, { room: r.room, msg: r.msg, text: r.text });
+    });
+    chatRows = [...groups.values()];
+    await Promise.all(chatRows.map(async (g) => {
+      const m = await f.fs.getDoc(f.fs.doc(f.db, "mutes", g.uid));
+      g.mute = m.exists() ? ts(m.data().until) : 0;
+    }));
+    chatRows.sort((a, b) => b.n - a.n || b.last - a.last);
+    renderChatReports();
+    note.textContent = chatRows.length ? "" : "Şikayet edilen mesaj yok.";
+  } catch (e) {
+    $("chatReports").innerHTML = "";
+    note.innerHTML = `<span class="err">Şikayetler okunamadı: ${esc(e.code || e.message)}</span>` + (String(e.code).includes("permission") ? " (Firestore kurallarının yeni sürümü yayımlanmamış olabilir)" : "");
+  }
+}
+
+function renderChatReports() {
+  if (!chatRows.length) { $("chatReports").innerHTML = ""; return; }
+  const now = Date.now();
+  const body = chatRows.map((g, i) => {
+    const reasons = g.reasons.map((c, k) => c ? `<span class="chip${k <= 1 ? " bad" : ""}">${CHAT_REASONS[k]} ×${c}</span>` : "").join("");
+    const msgs = [...g.msgs.values()].slice(0, 4).map((m) => `<div class="quote"><span class="muted">${esc(chatRoomName(m.room))}</span> “${esc(m.text)}”</div>`).join("");
+    const muted = g.mute > now;
+    const acts = [
+      `<button class="danger" data-act="mute1" data-i="${i}">1 gün sustur</button>`,
+      `<button class="danger" data-act="mute7" data-i="${i}">7 gün sustur</button>`,
+      `<button class="danger" data-act="muteX" data-i="${i}">Kalıcı sustur</button>`,
+      `<button data-act="delete" data-i="${i}">Mesajları sil</button>`,
+    ];
+    if (muted) acts.push(`<button data-act="unmute" data-i="${i}">Susturmayı kaldır</button>`);
+    acts.push(`<button data-act="dismiss" data-i="${i}">Yoksay</button>`);
+    return `<tr><td><b>${esc(codeName(g.name))}</b><div class="muted">${esc(g.uid)}</div></td><td>${msgs}</td><td>${g.n}</td><td>${reasons}</td>
+      <td>${when(g.last)}</td><td>${muted ? (g.mute - now > 3000 * DAY ? "kalıcı" : when(g.mute)) : ""}</td><td><div class="acts">${acts.join("")}</div></td></tr>`;
+  }).join("");
+  $("chatReports").innerHTML = `<thead><tr><th>Oyuncu</th><th>Mesaj</th><th>Şikayet</th><th>Sebep</th><th>Son</th><th>Susturma</th><th></th></tr></thead><tbody>${body}</tbody>`;
+  $("chatReports").querySelectorAll("button[data-act]").forEach((b) => { b.onclick = (ev) => { ev.stopPropagation(); chatAct(b.dataset.act, chatRows[+b.dataset.i]); }; });
+}
+
+function chatRoomName(room) {
+  room = String(room || "");
+  if (room.startsWith("global/")) return "Genel sohbet (" + room.slice(7).toUpperCase() + ")";
+  return room.startsWith("clan/") ? "Klan" : room;
+}
+
+async function chatAct(kind, g) {
+  if (demo) { alert("Örnek veri: gerçek bir işlem yapılmadı."); return; }
+  const who = codeName(g.name) || g.uid;
+  const msg = kind === "mute1" ? `${who} 1 gün sohbete yazamasın mı?` : kind === "mute7" ? `${who} 7 gün sohbete yazamasın mı?`
+    : kind === "muteX" ? `${who} bir daha sohbete yazamasın mı?` : kind === "unmute" ? `${who} yeniden yazabilsin mi?`
+    : kind === "delete" ? `${who} oyuncusunun şikayet edilen ${g.msgs.size} mesajı sohbetten silinsin mi?` : `${who} için şikayetler silinsin mi?`;
+  if (!confirm(msg)) return;
+  try {
+    const f = await loadFirebase(), fs = f.fs, db = f.db;
+    const b = fs.writeBatch(db);
+    const days = kind === "mute1" ? 1 : kind === "mute7" ? 7 : kind === "muteX" ? 3650 : 0;
+    if (days) b.set(fs.doc(db, "mutes", g.uid), { until: fs.Timestamp.fromMillis(Date.now() + days * DAY), at: fs.serverTimestamp() });
+    if (kind === "unmute") b.delete(fs.doc(db, "mutes", g.uid));
+    if (kind === "delete") {
+      for (const m of g.msgs.values()) {
+        const room = String(m.room || "");
+        if (room.startsWith("clan/")) b.delete(fs.doc(db, "clans", room.slice(5), "chat", m.msg));
+        else if (room.startsWith("global/")) b.delete(fs.doc(db, "global", room.slice(7), "chat", m.msg));
+      }
+    }
+    if (kind === "delete" || kind === "dismiss" || days) g.ids.forEach((id) => b.delete(fs.doc(db, "chatReports", id)));
+    await b.commit();
+    $("chatNote").textContent = days ? "Oyuncu susturuldu; şikayetler kapandı." : kind === "unmute" ? "Susturma kaldırıldı." : kind === "delete" ? "Mesajlar silindi; şikayetler kapandı." : "Şikayetler silindi.";
+    await loadChatReports();
+  } catch (e) { $("chatNote").innerHTML = `<span class="err">Yapılamadı: ${esc(e.code || e.message)}</span>`; }
+}
+
+function fakeChatReports() {
+  chatRows = [
+    { uid: "demoQ1w2E3r4T5y6U7i8O9p0A1s2", name: "8.4.12", n: 3, reasons: [2, 1, 0, 0], last: Date.now() - 1800000, ids: [], mute: 0,
+      msgs: new Map([["m1", { room: "clan/demo", msg: "m1", text: "(süzgeçten kaçmış kaba bir mesaj)" }]]) },
+    { uid: "demoD4f5G6h7J8k9L0z1X2c3V4b5", name: "Gece Kuşu", n: 1, reasons: [0, 0, 1, 0], last: Date.now() - 7200000, ids: [], mute: Date.now() + DAY,
+      msgs: new Map([["m2", { room: "global/tr", msg: "m2", text: "Bedava elmas için siteme gelin" }]]) },
+  ];
+  renderChatReports();
+  $("chatNote").textContent = "Örnek veri (gerçek değil).";
 }
 
 render();

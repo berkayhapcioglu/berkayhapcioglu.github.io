@@ -109,7 +109,7 @@ const cfg = {
 };
 const $ = (id) => document.getElementById(id);
 const DAY = 86400000;
-const STEPS = ["Oyunu açtı", "Hikâye başladı", "Hikâye bitti", "1. savaş", "İlk kart", "1. savaş bitti", "Menüye geldi",
+const STEPS = ["Oyunu açtı", "Hikâye başladı", "Hikâye bitti", "1. savaş", "İlk kart", "1. savaş bitti", "Şehri gördü",
   "2. savaş", "İlk yükseltme", "Ertesi gün döndü", "İlk zafer", "5. savaş", "Mağazayı açtı", "1. diyarı fethetti", "7. gün döndü"];
 const SRC = { friend: "Arkadaşından", instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", store: "App Store", ad: "Reklam", other: "Başka" };
 const GEN = { survivor: "Hayatta kalma", rpg: "RPG", strategy: "Strateji", puzzle: "Bulmaca", action: "Aksiyon", idle: "Idle", moba: "MOBA", none: "Pek oynamaz" };
@@ -148,6 +148,7 @@ $("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örne
 $("channel").onchange = render;
 $("range").onchange = render;
 
+let loadedAt = "";
 function setStatus(t, bad) { $("status").textContent = t; $("status").className = "sub" + (bad ? " err" : ""); }
 
 async function load() {
@@ -157,7 +158,7 @@ async function load() {
     setStatus("Yükleniyor…");
     const snap = await f.fs.getDocs(f.fs.collection(f.db, "players"));
     all = snap.docs.map((d) => norm(d.id, d.data()));
-    setStatus(`${all.length} oyuncu · ${new Date().toLocaleString("tr-TR")} · giriş: ${f.authI.currentUser.email}`);
+    loadedAt = `${new Date().toLocaleString("tr-TR")} · giriş: ${f.authI.currentUser.email}`;
     render();
   } catch (e) {
     setStatus("Okunamadı: " + (e.code || e.message) + (String(e.code).includes("permission") ? " (Firestore kuralı bu hesaba okuma izni vermiyor)" : ""), true);
@@ -168,7 +169,7 @@ function ts(v) { return v && v.toMillis ? v.toMillis() : (typeof v === "number" 
 function norm(id, d) {
   const n = (k) => Number(d[k] || 0);
   return { id, sid: d.sid || "", channel: d.channel || "", model: d.model || "", os: d.os || "", lang: d.lang || "", region: d.region || "",
-    app: d.app || "", first: ts(d.first), last: ts(d.last), sessions: n("sessions"), playMin: n("playMin"), days: n("days"),
+    app: d.app || "", first: ts(d.first), last: ts(d.last), sessions: n("sessions"), playSec: d.playSec != null ? n("playSec") : n("playMin") * 60, days: n("days"),
     dayMask: Number(d.dayMask || 0), hours: (d.hours || []).map(Number), dows: (d.dows || []).map(Number), recent: (d.recent || []).map(Number),
     best: n("best"), bestCode: d.bestCode || "00-00", dynasty: n("dynasty") || 1, runs: n("runs"), wins: n("wins"), deaths: n("deaths"),
     extracts: n("extracts"), quits: n("quits"), revives: n("revives"), stuckAt: d.stuckAt || "", stuckFails: n("stuckFails"),
@@ -209,14 +210,18 @@ function columns(title, sub, values, labels) {
   const max = Math.max(1, ...values);
   return `<div class="card"><h2>${esc(title)}</h2><div class="sub">${sub}</div><div class="cols">${values.map((v, i) => `<div style="height:${(v / max) * 100}%" title="${esc(labels[i])}: ${v}"></div>`).join("")}</div><div class="axis">${labels.map((l, i) => `<span>${values.length > 12 && i % 3 ? "" : esc(l)}</span>`).join("")}</div></div>`;
 }
+// Süre: 1 dakikanın altı saniye, 10 dakikanın altı bir ondalık
+function dur(sec) { if (!(sec > 0)) return "0 sn"; if (sec < 60) return Math.round(sec) + " sn"; const m = sec / 60; return (m < 10 ? m.toFixed(1).replace(".", ",") : Math.round(m)) + " dk"; }
 function tile(k, v, n) { return `<div class="tile"><div class="k">${esc(k)}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`; }
 
 function render() {
   const ps = filtered(), now = Date.now();
+  if (loadedAt && !demo) setStatus(`${ps.length} oyuncu bu filtrede` + (all.length !== ps.length ? ` (toplam ${all.length} kayıt; ${all.length - ps.length} tanesi filtre dışında)` : "") + ` · ${loadedAt}`);
   // Tutunma: kurulumdan sonraki gün d'de oyuna girdi mi (yalnız d günü geçmiş olanlar sayılır)
   const ret = (d) => { const base = ps.filter((p) => p.first && p.first <= now - (d + 1) * DAY); const back = base.filter((p) => (p.dayMask / 2 ** d) % 2 >= 1); return [back.length, base.length]; };
   const [d1, d1n] = ret(1), [d3, d3n] = ret(3), [d7, d7n] = ret(7);
   const sess = ps.flatMap((p) => p.recent).filter((x) => x > 0);
+  const nSess = ps.reduce((s, p) => s + Math.max(p.sessions, 0), 0), playSec = ps.reduce((s, p) => s + p.playSec, 0);
   const payers = ps.filter((p) => p.purchases > 0);
   const usd = ps.reduce((s, p) => s + p.usd, 0);
   const lost = ps.filter(churned);
@@ -226,8 +231,8 @@ function render() {
     tile("Ertesi gün dönen (D1)", pct(d1, d1n), `${d1}/${d1n} oyuncu · hedef %35`),
     tile("3. gün (D3)", pct(d3, d3n), `${d3}/${d3n}`),
     tile("7. gün (D7)", pct(d7, d7n), `${d7}/${d7n} · hedef %10`),
-    tile("Ortalama oturum", sess.length ? Math.round(avg(sess) / 60) + " dk" : "–", `${sess.length} oturum`),
-    tile("Oyuncu başı süre", ps.length ? Math.round(avg(ps.map((p) => p.playMin))) + " dk" : "–", "toplam oynama"),
+    tile("Ortalama oturum", nSess ? dur(playSec / nSess) : "–", `${nSess} oturum`),
+    tile("Oyuncu başı süre", ps.length ? dur(playSec / ps.length) : "–", "toplam oynama"),
     tile("3+ gündür yok", lost.length, pct(lost.length, ps.length) + " bıraktı (şimdilik)"),
     tile("Ödeme yapan", pct(payers.length, ps.length), `${payers.length} oyuncu · hedef %1,5-3`),
     tile("Gelir (yaklaşık)", "$" + usd.toFixed(2), "mağaza kesintisi öncesi"),
@@ -289,7 +294,7 @@ function render() {
 }
 
 const COLS = [
-  ["sid", "Destek Kimliği"], ["first", "İlk geliş"], ["last", "Son görülme"], ["days", "Gün"], ["sessions", "Oturum"], ["playMin", "Dk"],
+  ["sid", "Destek Kimliği"], ["first", "İlk geliş"], ["last", "Son görülme"], ["days", "Gün"], ["sessions", "Oturum"], ["playSec", "Süre"],
   ["bestCode", "En ileri"], ["stuckAt", "Takıldığı yer"], ["lastRun", "Son savaş"], ["usd", "$"], ["model", "Cihaz"], ["flags", "Durum"],
 ];
 function renderTable(ps) {
@@ -299,7 +304,7 @@ function renderTable(ps) {
     const flags = [churned(p) ? `<span class="chip bad">bıraktı?</span>` : `<span class="chip good">aktif</span>`,
       p.stuckFails >= 3 ? `<span class="chip warn">takıldı ×${p.stuckFails}</span>` : "", shrinking(p) ? `<span class="chip warn">oturum kısalıyor</span>` : "",
       p.buyFails > 0 && !p.purchases ? `<span class="chip warn">almaya bastı, vazgeçti</span>` : "", p.purchases ? `<span class="chip good">ödedi</span>` : ""].join("");
-    return `<tr data-id="${esc(p.id)}"><td>${esc(p.sid || p.id.slice(0, 8))}</td><td>${p.first ? new Date(p.first).toLocaleDateString("tr-TR") : "–"}</td><td>${ago(p.last)}</td><td>${p.days}</td><td>${p.sessions}</td><td>${p.playMin}</td><td>${esc(p.bestCode)}</td><td>${p.stuckFails >= 3 ? esc(p.stuckAt) + " ×" + p.stuckFails : ""}</td><td>${esc(p.lastRun)}</td><td>${p.usd ? p.usd.toFixed(2) : ""}</td><td>${esc(model(p.model))}</td><td>${flags}</td></tr>`;
+    return `<tr data-id="${esc(p.id)}"><td>${esc(p.sid || p.id.slice(0, 8))}</td><td>${p.first ? new Date(p.first).toLocaleDateString("tr-TR") : "–"}</td><td>${ago(p.last)}</td><td>${p.days}</td><td>${p.sessions}</td><td>${dur(p.playSec)}</td><td>${esc(p.bestCode)}</td><td>${p.stuckFails >= 3 ? esc(p.stuckAt) + " ×" + p.stuckFails : ""}</td><td>${esc(p.lastRun)}</td><td>${p.usd ? p.usd.toFixed(2) : ""}</td><td>${esc(model(p.model))}</td><td>${flags}</td></tr>`;
   }).join("");
   $("players").innerHTML = head + `<tbody>${body}</tbody>`;
   $("players").querySelectorAll("th").forEach((th) => (th.onclick = () => { const k = th.dataset.k; if (k === "flags") return; sortDir = sortKey === k ? -sortDir : -1; sortKey = k; renderTable(filtered()); }));
@@ -337,7 +342,7 @@ function fakePlayers(n) {
     const buy = r() < 0.05;
     out.push(norm("demo" + i, { sid: "KL-" + Math.floor(r() * 9000 + 1000) + "-" + Math.floor(r() * 9000 + 1000), channel: r() < 0.8 ? "testflight" : "appstore",
       model: models[Math.floor(r() * models.length)], os: "iOS " + (17 + Math.floor(r() * 3)) + ".1", lang: r() < 0.7 ? "tr" : "en", region: r() < 0.7 ? "TR" : ["DE", "US", "GB", "NL"][Math.floor(r() * 4)],
-      app: "0.9.0", first, last, sessions: 1 + life * 2, playMin: Math.round(20 + life * 25 * r()), days: 1 + life, dayMask: mask, hours, dows, recent,
+      app: "0.9.0", first, last, sessions: 1 + life * 2, playSec: Math.round((20 + life * 25 * r()) * 60), days: 1 + life, dayMask: mask, hours, dows, recent,
       best, bestCode: String(Math.floor(best / 10) + 1).padStart(2, "0") + "-" + String((best % 10) + 1).padStart(2, "0"), runs: 3 + life * 6, wins: life * 3, deaths: life * 2 + 1, extracts: life, quits: Math.floor(r() * 3),
       stuckAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", stuckFails: stuck ? 3 + Math.floor(r() * 6) : 0,
       lastRun: ["01-0", "02-0", "03-0"][Math.floor(r() * 3)] + Math.floor(r() * 9 + 1) + [" death", " extract", " win"][Math.floor(r() * 3)] + " 03:12",

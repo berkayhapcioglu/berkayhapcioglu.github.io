@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>King Legends Oyuncu Paneli</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3ef; --surface: #fcfcfb; --line: #e3e1da; --ink: #0b0b0b; --ink2: #52514e; --ink3: #8a8983;
+  --bar: #2a78d6; --bar-soft: #cfe0f6; --good: #1f7a3a; --warn: #a86a00; --bad: #b3261e; --chip: #efeee9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211; --surface: #1a1a19; --line: #2e2d2b; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+    --bar: #3987e5; --bar-soft: #23364f; --good: #5cc27a; --warn: #e0a43a; --bad: #ef7a72; --chip: #252523;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211; --surface: #1a1a19; --line: #2e2d2b; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e86;
+  --bar: #3987e5; --bar-soft: #23364f; --good: #5cc27a; --warn: #e0a43a; --bad: #ef7a72; --chip: #252523;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 18px 16px 8px; max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+.sub { color: var(--ink2); font-size: 13px; margin: 0 0 12px; }
+main { max-width: 1200px; margin: 0 auto; padding: 0 16px 40px; }
+button, select { font: inherit; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+button.primary { background: var(--bar); border-color: var(--bar); color: #fff; }
+.bar-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin: 12px 0 18px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+.tile .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tile .k { color: var(--ink2); font-size: 13px; }
+.tile .n { color: var(--ink3); font-size: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
+.hbar { display: grid; grid-template-columns: minmax(80px, 38%) 1fr 64px; gap: 8px; align-items: center; font-size: 13px; margin: 3px 0; }
+.hbar .lbl { color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .track { height: 14px; position: relative; }
+.hbar .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--bar); border-radius: 0 4px 4px 0; min-width: 2px; }
+.hbar .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.hbar:hover .fill { filter: brightness(1.15); }
+.cols { display: flex; align-items: flex-end; gap: 2px; height: 120px; margin-top: 8px; }
+.cols div { flex: 1; background: var(--bar); border-radius: 4px 4px 0 0; min-height: 2px; }
+.cols div:hover { filter: brightness(1.2); }
+.axis { display: flex; gap: 2px; font-size: 11px; color: var(--ink3); }
+.axis span { flex: 1; text-align: center; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--ink2); font-weight: 600; cursor: pointer; user-select: none; position: sticky; top: 0; background: var(--surface); }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--chip); }
+.scroll { overflow: auto; max-height: 520px; }
+.chip { display: inline-block; padding: 1px 7px; border-radius: 999px; font-size: 12px; background: var(--chip); color: var(--ink2); margin-right: 3px; }
+.chip.bad { color: var(--bad); } .chip.warn { color: var(--warn); } .chip.good { color: var(--good); }
+.events { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; background: var(--chip); border-radius: 8px; padding: 8px; max-height: 360px; overflow: auto; }
+.muted { color: var(--ink3); }
+.err { color: var(--bad); }
+#drill { margin-top: 12px; }
+.note { font-size: 12px; color: var(--ink3); margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>King Legends · Oyuncu Paneli</h1>
+    <div class="sub" id="status">Verileri görmek için Google hesabınla giriş yap.</div>
+  </div>
+  <div class="bar-row">
+    <select id="channel" title="Hangi oyuncular">
+      <option value="real">TestFlight + App Store</option>
+      <option value="all">Hepsi (geliştirici dahil)</option>
+      <option value="testflight">Yalnız TestFlight</option>
+      <option value="appstore">Yalnız App Store</option>
+      <option value="dev">Yalnız geliştirici</option>
+    </select>
+    <select id="range" title="Kurulum tarihi">
+      <option value="0">Tüm zamanlar</option>
+      <option value="7">Son 7 günde gelenler</option>
+      <option value="30">Son 30 günde gelenler</option>
+    </select>
+    <button id="reload">Yenile</button>
+    <button id="signin" class="primary">Google ile giriş</button>
+    <button id="demo">Örnek veri</button>
+  </div>
+</header>
+<main>
+  <div class="tiles" id="tiles"></div>
+  <div class="grid" id="charts"></div>
+  <div class="card" style="margin-top:12px">
+    <h2>Oyuncular</h2>
+    <div class="sub">Bir satıra tıkla: o oyuncunun son oturumları ve yaptığı her şey sırayla. Destek Kimliği oyunda Ayarlar'ın altında yazar.</div>
+    <div class="scroll"><table id="players"></table></div>
+    <div id="drill"></div>
+  </div>
+  <p class="note">Veri: Firestore "players" (oyuncu kartı, en sık 3 dakikada bir ve oyuncu oyundan çıkarken güncellenir). Toplu grafikler, tutunma ve gelir için Firebase konsolu &gt; Analytics de var. Kişisel bilgi yok: oyuncular rastgele Destek Kimliğiyle görünür.</p>
+</main>
+<script type="module">
+const cfg = {
+  apiKey: "AIzaSyDBRXQOiG5z9BuBcyJz5s4RvtXoLkwuiwI",
+  authDomain: "king-legends.firebaseapp.com",
+  projectId: "king-legends",
+};
+const $ = (id) => document.getElementById(id);
+const DAY = 86400000;
+const STEPS = ["Oyunu açtı", "Hikâye başladı", "Hikâye bitti", "1. savaş", "İlk kart", "1. savaş bitti", "Menüye geldi",
+  "2. savaş", "İlk yükseltme", "Ertesi gün döndü", "İlk zafer", "5. savaş", "Mağazayı açtı", "1. diyarı fethetti", "7. gün döndü"];
+const SRC = { friend: "Arkadaşından", instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", store: "App Store", ad: "Reklam", other: "Başka" };
+const GEN = { survivor: "Hayatta kalma", rpg: "RPG", strategy: "Strateji", puzzle: "Bulmaca", action: "Aksiyon", idle: "Idle", moba: "MOBA", none: "Pek oynamaz" };
+const MODELS = { "iPhone18,3": "iPhone 17", "iPhone18,1": "iPhone 17 Pro", "iPhone18,2": "iPhone 17 Pro Max", "iPhone18,4": "iPhone Air",
+  "iPhone17,3": "iPhone 16", "iPhone17,4": "iPhone 16 Plus", "iPhone17,1": "iPhone 16 Pro", "iPhone17,2": "iPhone 16 Pro Max", "iPhone17,5": "iPhone 16e",
+  "iPhone16,1": "iPhone 15 Pro", "iPhone16,2": "iPhone 15 Pro Max", "iPhone15,4": "iPhone 15", "iPhone15,5": "iPhone 15 Plus",
+  "iPhone15,2": "iPhone 14 Pro", "iPhone15,3": "iPhone 14 Pro Max", "iPhone14,7": "iPhone 14", "iPhone14,8": "iPhone 14 Plus",
+  "iPhone14,5": "iPhone 13", "iPhone14,4": "iPhone 13 mini", "iPhone14,2": "iPhone 13 Pro", "iPhone14,3": "iPhone 13 Pro Max",
+  "iPhone13,2": "iPhone 12", "iPhone13,1": "iPhone 12 mini", "iPhone13,3": "iPhone 12 Pro", "iPhone13,4": "iPhone 12 Pro Max",
+  "iPhone14,6": "iPhone SE (3.)", "iPhone12,8": "iPhone SE (2.)", "iPhone12,1": "iPhone 11", "iPhone12,3": "iPhone 11 Pro", "iPhone12,5": "iPhone 11 Pro Max" };
+
+let fb = null, all = [], sortKey = "last", sortDir = -1, demo = false;
+
+async function loadFirebase() {
+  if (fb) return fb;
+  const v = "10.12.2";
+  const app = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-app.js`);
+  const auth = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-auth.js`);
+  const fs = await import(`https://www.gstatic.com/firebasejs/${v}/firebase-firestore.js`);
+  const a = app.initializeApp(cfg);
+  fb = { auth, fs, authI: auth.getAuth(a), db: fs.getFirestore(a) };
+  auth.onAuthStateChanged(fb.authI, (u) => { if (u && !demo) { $("signin").textContent = "Çıkış"; load(); } else if (!demo) { $("signin").textContent = "Google ile giriş"; } });
+  return fb;
+}
+
+$("signin").onclick = async () => {
+  try {
+    const f = await loadFirebase();
+    if (f.authI.currentUser) { await f.auth.signOut(f.authI); all = []; render(); setStatus("Çıkış yapıldı."); return; }
+    demo = false;
+    await f.auth.signInWithPopup(f.authI, new f.auth.GoogleAuthProvider());
+  } catch (e) { setStatus("Giriş olmadı: " + (e.code || e.message), true); }
+};
+$("reload").onclick = () => demo ? render() : load();
+$("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); };
+$("channel").onchange = render;
+$("range").onchange = render;
+
+function setStatus(t, bad) { $("status").textContent = t; $("status").className = "sub" + (bad ? " err" : ""); }
+
+async function load() {
+  try {
+    const f = await loadFirebase();
+    if (!f.authI.currentUser) { setStatus("Önce giriş yap."); return; }
+    setStatus("Yükleniyor…");
+    const snap = await f.fs.getDocs(f.fs.collection(f.db, "players"));
+    all = snap.docs.map((d) => norm(d.id, d.data()));
+    setStatus(`${all.length} oyuncu · ${new Date().toLocaleString("tr-TR")} · giriş: ${f.authI.currentUser.email}`);
+    render();
+  } catch (e) {
+    setStatus("Okunamadı: " + (e.code || e.message) + (String(e.code).includes("permission") ? " (Firestore kuralı bu hesaba okuma izni vermiyor)" : ""), true);
+  }
+}
+
+function ts(v) { return v && v.toMillis ? v.toMillis() : (typeof v === "number" ? v : (v ? Date.parse(v) : 0)); }
+function norm(id, d) {
+  const n = (k) => Number(d[k] || 0);
+  return { id, sid: d.sid || "", channel: d.channel || "", model: d.model || "", os: d.os || "", lang: d.lang || "", region: d.region || "",
+    app: d.app || "", first: ts(d.first), last: ts(d.last), sessions: n("sessions"), playMin: n("playMin"), days: n("days"),
+    dayMask: Number(d.dayMask || 0), hours: (d.hours || []).map(Number), dows: (d.dows || []).map(Number), recent: (d.recent || []).map(Number),
+    best: n("best"), bestCode: d.bestCode || "00-00", dynasty: n("dynasty") || 1, runs: n("runs"), wins: n("wins"), deaths: n("deaths"),
+    extracts: n("extracts"), quits: n("quits"), revives: n("revives"), stuckAt: d.stuckAt || "", stuckFails: n("stuckFails"),
+    stuckSince: ts(d.stuckSince), lastScreen: d.lastScreen || "", lastRun: d.lastRun || "", inRun: !!d.inRun, gold: n("gold"), gems: n("gems"),
+    purchases: n("purchases"), usd: Number(d.usd || 0), vip: !!d.vip, shopOpens: n("shopOpens"), offerViews: n("offerViews"),
+    buyStarts: n("buyStarts"), buyFails: n("buyFails"), lastProduct: d.lastProduct || "", adsWatched: n("adsWatched"),
+    adsSkipped: n("adsSkipped"), adsMissing: n("adsMissing"), interstitials: n("interstitials"), onboard: n("onboard"),
+    survey: d.survey || "", errors: n("errors") };
+}
+
+function filtered() {
+  const ch = $("channel").value, range = Number($("range").value), now = Date.now();
+  return all.filter((p) => {
+    if (ch === "real" && !(p.channel === "testflight" || p.channel === "appstore")) return false;
+    if (ch !== "all" && ch !== "real" && p.channel !== ch) return false;
+    if (range > 0 && p.first < now - range * DAY) return false;
+    return true;
+  });
+}
+
+const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) + "%" : "–");
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ago = (t) => { if (!t) return "–"; const h = (Date.now() - t) / 3600000; return h < 1 ? Math.max(1, Math.round(h * 60)) + " dk önce" : h < 48 ? Math.round(h) + " sa önce" : Math.round(h / 24) + " gün önce"; };
+const churned = (p) => Date.now() - p.last > 3 * DAY;
+function shrinking(p) { const r = p.recent; if (r.length < 6) return false; const a = avg(r.slice(0, 3)), b = avg(r.slice(-3)); return a > 120 && b < a * 0.6; }
+const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+const model = (m) => MODELS[m] || m || "?";
+function survey(s) { const o = {}; String(s || "").split(";").forEach((kv) => { const i = kv.indexOf("="); if (i > 0) o[kv.slice(0, i)] = kv.slice(i + 1); }); return o; }
+function count(list, key) { const m = new Map(); list.forEach((x) => { const k = key(x); if (k === null || k === undefined || k === "") return; m.set(k, (m.get(k) || 0) + 1); }); return [...m.entries()].sort((a, b) => b[1] - a[1]); }
+
+function hbars(title, sub, rows, opts = {}) {
+  const max = Math.max(1, ...rows.map((r) => r[1]));
+  const total = opts.total || rows.reduce((s, r) => s + r[1], 0);
+  const body = rows.length ? rows.map(([k, v, tip]) => `<div class="hbar" title="${esc(tip || `${k}: ${v}`)}"><div class="lbl">${esc(k)}</div><div class="track"><div class="fill" style="width:${(v / max) * 100}%"></div></div><div class="val">${opts.pct ? pct(v, total) : v}</div></div>`).join("") : `<div class="muted">Henüz veri yok.</div>`;
+  return `<div class="card"><h2>${esc(title)}</h2><div class="sub">${sub}</div>${body}</div>`;
+}
+function columns(title, sub, values, labels) {
+  const max = Math.max(1, ...values);
+  return `<div class="card"><h2>${esc(title)}</h2><div class="sub">${sub}</div><div class="cols">${values.map((v, i) => `<div style="height:${(v / max) * 100}%" title="${esc(labels[i])}: ${v}"></div>`).join("")}</div><div class="axis">${labels.map((l, i) => `<span>${values.length > 12 && i % 3 ? "" : esc(l)}</span>`).join("")}</div></div>`;
+}
+function tile(k, v, n) { return `<div class="tile"><div class="k">${esc(k)}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`; }
+
+function render() {
+  const ps = filtered(), now = Date.now();
+  // Tutunma: kurulumdan sonraki gün d'de oyuna girdi mi (yalnız d günü geçmiş olanlar sayılır)
+  const ret = (d) => { const base = ps.filter((p) => p.first && p.first <= now - (d + 1) * DAY); const back = base.filter((p) => (p.dayMask / 2 ** d) % 2 >= 1); return [back.length, base.length]; };
+  const [d1, d1n] = ret(1), [d3, d3n] = ret(3), [d7, d7n] = ret(7);
+  const sess = ps.flatMap((p) => p.recent).filter((x) => x > 0);
+  const payers = ps.filter((p) => p.purchases > 0);
+  const usd = ps.reduce((s, p) => s + p.usd, 0);
+  const lost = ps.filter(churned);
+  $("tiles").innerHTML = [
+    tile("Oyuncu", ps.length, `${ps.filter((p) => now - p.first < DAY).length} yeni (24 sa)`),
+    tile("Bugün oynayan", ps.filter((p) => now - p.last < DAY).length, `7 günde ${ps.filter((p) => now - p.last < 7 * DAY).length}`),
+    tile("Ertesi gün dönen (D1)", pct(d1, d1n), `${d1}/${d1n} oyuncu · hedef %35`),
+    tile("3. gün (D3)", pct(d3, d3n), `${d3}/${d3n}`),
+    tile("7. gün (D7)", pct(d7, d7n), `${d7}/${d7n} · hedef %10`),
+    tile("Ortalama oturum", sess.length ? Math.round(avg(sess) / 60) + " dk" : "–", `${sess.length} oturum`),
+    tile("Oyuncu başı süre", ps.length ? Math.round(avg(ps.map((p) => p.playMin))) + " dk" : "–", "toplam oynama"),
+    tile("3+ gündür yok", lost.length, pct(lost.length, ps.length) + " bıraktı (şimdilik)"),
+    tile("Ödeme yapan", pct(payers.length, ps.length), `${payers.length} oyuncu · hedef %1,5-3`),
+    tile("Gelir (yaklaşık)", "$" + usd.toFixed(2), "mağaza kesintisi öncesi"),
+  ].join("");
+
+  const charts = [];
+  // Nerede bırakıyorlar
+  charts.push(hbars("Nerede bıraktılar?", "3 günden uzun süredir girmeyen oyuncuların geçtiği en ileri bölüm (bir sonrakinde kaldılar). Bir yerde yığılma = sonraki bölüm zor ya da sıkıcı.",
+    count(lost, (p) => p.bestCode).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => [k === "00-00" ? "Hiç bölüm geçmedi" : k, v]), {}));
+  charts.push(hbars("Son yaptıkları", "Bırakan oyuncuların en son savaşı (bölüm, sonuç, süre). 'death' ile bitenler ölüp çıkmış.",
+    count(lost, (p) => p.lastRun.replace(/ \d\d:\d\d$/, "")).slice(0, 12), {}));
+  // İlk adımlar hunisi
+  charts.push(hbars("İlk adımlar", "Yeni oyuncuların yüzde kaçı bu adıma vardı. Büyük düşüş = ilk dakikalarda sorun.",
+    STEPS.map((s, i) => [s, ps.filter((p) => (p.onboard >> i) & 1).length]), { pct: true, total: ps.length }));
+  // Diyar hunisi
+  const realms = [];
+  for (let r = 1; r <= 10; r++) realms.push([`${r}. diyar`, ps.filter((p) => p.best >= (r - 1) * 10).length, `${r}. diyara ulaşan`]);
+  realms.push(["10. diyar bitti", ps.filter((p) => p.best >= 100).length]);
+  charts.push(hbars("Diyarlara ulaşma", "Oyuncuların yüzde kaçı o diyara kadar geldi.", realms, { pct: true, total: ps.length }));
+  charts.push(hbars("Takıldıkları bölüm", "Şu an aynı bölümde art arda 3+ kez ölenler (sağda kişi sayısı).",
+    count(ps.filter((p) => p.stuckFails >= 3), (p) => p.stuckAt).map(([k, v]) => { const g = ps.filter((p) => p.stuckAt === k && p.stuckFails >= 3); return [k, v, `${k}: ${v} oyuncu, ortalama ${Math.round(avg(g.map((p) => p.stuckFails)))} ölüm`]; }), {}));
+  // Saatler ve günler
+  const hours = Array(24).fill(0), dows = Array(7).fill(0);
+  ps.forEach((p) => { p.hours.forEach((v, i) => (hours[i] += v || 0)); p.dows.forEach((v, i) => (dows[i] += v || 0)); });
+  charts.push(columns("Hangi saatlerde oynuyorlar", "Oturum başlangıçları, oyuncunun kendi saatine göre.", hours, hours.map((_, i) => String(i).padStart(2, "0"))));
+  const dn = ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"];
+  charts.push(columns("Haftanın günleri", "Oturum başlangıçları.", [1, 2, 3, 4, 5, 6, 0].map((i) => dows[i]), [1, 2, 3, 4, 5, 6, 0].map((i) => dn[i])));
+  const sb = [["1 dk'dan kısa", 0, 60], ["1-3 dk", 60, 180], ["3-5 dk", 180, 300], ["5-10 dk", 300, 600], ["10-20 dk", 600, 1200], ["20-40 dk", 1200, 2400], ["40 dk+", 2400, 1e9]];
+  charts.push(hbars("Oturum süreleri", "Son 10 oturumlarına göre. Çok sayıda 1 dk'dan kısa oturum = açıp hemen kapatıyorlar.",
+    sb.map(([k, a, b]) => [k, sess.filter((x) => x >= a && x < b).length]), { pct: true }));
+  // Mağaza hunisi
+  charts.push(hbars("Ödeme hunisi", "Kaç oyuncu mağazayı açtı, teklife baktı, satın almaya bastı, aldı. 'Bastı ama almadı' = fiyat ya da vazgeçme.", [
+    ["Mağazayı açtı", ps.filter((p) => p.shopOpens > 0).length],
+    ["Teklif gördü", ps.filter((p) => p.offerViews > 0).length],
+    ["Satın almaya bastı", ps.filter((p) => p.buyStarts > 0).length],
+    ["Bastı ama almadı", ps.filter((p) => p.buyFails > 0 && p.purchases === 0).length],
+    ["Satın aldı", payers.length],
+    ["Kral Ayrıcalığı açık", ps.filter((p) => p.vip).length],
+  ], { pct: true, total: ps.length }));
+  charts.push(hbars("Reklamlar", "Ödüllü reklam: izlenen, yarıda bırakılan, hazır olmadığı için gösterilemeyen; geçiş reklamı.", [
+    ["İzlendi", ps.reduce((s, p) => s + p.adsWatched, 0)], ["Yarıda kaldı", ps.reduce((s, p) => s + p.adsSkipped, 0)],
+    ["Reklam yoktu", ps.reduce((s, p) => s + p.adsMissing, 0)], ["Geçiş reklamı", ps.reduce((s, p) => s + p.interstitials, 0)]]));
+  charts.push(hbars("Savaş sonuçları", "Bütün oyuncuların toplamı.", [
+    ["Zafer / diyar sonu", ps.reduce((s, p) => s + p.wins, 0)], ["Portaldan çıkış", ps.reduce((s, p) => s + p.extracts, 0)],
+    ["Ölüm", ps.reduce((s, p) => s + p.deaths, 0)], ["Yarıda bıraktı", ps.reduce((s, p) => s + p.quits, 0)], ["Dirilme", ps.reduce((s, p) => s + p.revives, 0)]]));
+  // Cihaz, sürüm, ülke
+  charts.push(hbars("Cihazlar", "iPhone modeli.", count(ps, (p) => model(p.model)).slice(0, 10)));
+  charts.push(hbars("iOS ve oyun sürümü", "", [...count(ps, (p) => p.os.replace(/^iOS /, "iOS ").split(" ").slice(0, 2).join(" ")).slice(0, 6), ...count(ps, (p) => "Oyun " + p.app).slice(0, 4)]));
+  charts.push(hbars("Ülke ve dil", "Cihazın bölge ayarı ve oyundaki dil.", [...count(ps, (p) => p.region || "?").slice(0, 8), ...count(ps, (p) => (p.lang === "tr" ? "Türkçe" : "İngilizce"))]));
+  // Anket
+  const sv = ps.map((p) => survey(p.survey)).filter((s) => s.source);
+  charts.push(hbars("Bizi nereden duydular", `İsteğe bağlı anket · ${sv.length} cevap`, count(sv, (s) => SRC[s.source] || s.source)));
+  const g = new Map(); sv.forEach((s) => String(s.genres || "").split(",").filter(Boolean).forEach((x) => g.set(GEN[x] || x, (g.get(GEN[x] || x) || 0) + 1)));
+  charts.push(hbars("Başka oynadıkları oyun türleri", "Ankette işaretlenenler (birden çok seçilebilir).", [...g.entries()].sort((a, b) => b[1] - a[1])));
+  charts.push(hbars("En çok oynadıkları oyun", "Ankette yazdıkları (isteğe bağlı).", count(sv, (s) => (s.fav || "").trim().toLowerCase()).slice(0, 12)));
+  charts.push(hbars("Oyunu nasıl buldular", "1-5 yıldız.", [5, 4, 3, 2, 1].map((r) => [r + " yıldız", sv.filter((s) => Number(s.rating) === r).length]), { pct: true }));
+  $("charts").innerHTML = charts.join("");
+  renderTable(ps);
+}
+
+const COLS = [
+  ["sid", "Destek Kimliği"], ["first", "İlk geliş"], ["last", "Son görülme"], ["days", "Gün"], ["sessions", "Oturum"], ["playMin", "Dk"],
+  ["bestCode", "En ileri"], ["stuckAt", "Takıldığı yer"], ["lastRun", "Son savaş"], ["usd", "$"], ["model", "Cihaz"], ["flags", "Durum"],
+];
+function renderTable(ps) {
+  const rows = [...ps].sort((a, b) => { const x = a[sortKey], y = b[sortKey]; return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
+  const head = `<thead><tr>${COLS.map(([k, t]) => `<th data-k="${k}">${t}${k === sortKey ? (sortDir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}</tr></thead>`;
+  const body = rows.map((p) => {
+    const flags = [churned(p) ? `<span class="chip bad">bıraktı?</span>` : `<span class="chip good">aktif</span>`,
+      p.stuckFails >= 3 ? `<span class="chip warn">takıldı ×${p.stuckFails}</span>` : "", shrinking(p) ? `<span class="chip warn">oturum kısalıyor</span>` : "",
+      p.buyFails > 0 && !p.purchases ? `<span class="chip warn">almaya bastı, vazgeçti</span>` : "", p.purchases ? `<span class="chip good">ödedi</span>` : ""].join("");
+    return `<tr data-id="${esc(p.id)}"><td>${esc(p.sid || p.id.slice(0, 8))}</td><td>${p.first ? new Date(p.first).toLocaleDateString("tr-TR") : "–"}</td><td>${ago(p.last)}</td><td>${p.days}</td><td>${p.sessions}</td><td>${p.playMin}</td><td>${esc(p.bestCode)}</td><td>${p.stuckFails >= 3 ? esc(p.stuckAt) + " ×" + p.stuckFails : ""}</td><td>${esc(p.lastRun)}</td><td>${p.usd ? p.usd.toFixed(2) : ""}</td><td>${esc(model(p.model))}</td><td>${flags}</td></tr>`;
+  }).join("");
+  $("players").innerHTML = head + `<tbody>${body}</tbody>`;
+  $("players").querySelectorAll("th").forEach((th) => (th.onclick = () => { const k = th.dataset.k; if (k === "flags") return; sortDir = sortKey === k ? -sortDir : -1; sortKey = k; renderTable(filtered()); }));
+  $("players").querySelectorAll("tbody tr").forEach((tr) => (tr.onclick = () => drill(tr.dataset.id)));
+}
+
+async function drill(id) {
+  const p = all.find((x) => x.id === id);
+  if (!p) return;
+  const sv = survey(p.survey);
+  let html = `<h2>${esc(p.sid || id)}</h2><div class="sub">${esc(model(p.model))} · ${esc(p.os)} · oyun ${esc(p.app)} · ${esc(p.region)} · ${p.lang === "tr" ? "Türkçe" : "İngilizce"} · ${esc(p.channel)}<br>
+    ${p.runs} savaş: ${p.wins} zafer, ${p.extracts} çıkış, ${p.deaths} ölüm, ${p.quits} yarıda · altın ${p.gold.toLocaleString("tr-TR")} · elmas ${p.gems} · hanedan ${p.dynasty}<br>
+    Son oturum uzunlukları (dk): ${p.recent.map((s) => Math.round(s / 60)).join(", ") || "–"} · Son ekran: ${esc(p.lastScreen)}${p.inRun ? " (savaşın ortasında)" : ""}
+    ${sv.source ? `<br>Anket: ${esc(SRC[sv.source] || sv.source)} · türler: ${esc(sv.genres)} · en çok: ${esc(sv.fav)} · ${esc(sv.rating)} yıldız` : ""}</div>`;
+  $("drill").innerHTML = html + `<div class="muted">Oturumlar yükleniyor…</div>`;
+  if (demo) { $("drill").innerHTML = html + `<div class="events">${esc(fakeEvents(p))}</div>`; return; }
+  try {
+    const f = fb, q = f.fs.query(f.fs.collection(f.db, "players", id, "sessions"), f.fs.orderBy("start", "desc"), f.fs.limit(15));
+    const snap = await f.fs.getDocs(q);
+    const parts = snap.docs.map((d) => { const s = d.data(); const st = ts(s.start); return `── Oturum ${s.n} · ${new Date(st).toLocaleString("tr-TR")} · ${Math.round(Number(s.sec || 0) / 60)} dk · ${s.runs || 0} savaş${s.ended ? "" : " · sürüyor"}\n` + (s.events || []).join("\n"); });
+    $("drill").innerHTML = html + `<div class="events">${esc(parts.join("\n\n") || "Oturum yok.")}</div>`;
+  } catch (e) { $("drill").innerHTML = html + `<div class="err">Oturumlar okunamadı: ${esc(e.code || e.message)}</div>`; }
+}
+
+// ---- Örnek veri (gerçek değil; panelin görünüşü için)
+function fakePlayers(n) {
+  const out = [], now = Date.now(); let seed = 7; const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const models = Object.keys(MODELS).slice(0, 12), srcs = Object.keys(SRC), gens = Object.keys(GEN), favs = ["Brawl Stars", "Clash Royale", "Vampire Survivors", "Candy Crush", "Archero", "PUBG Mobile"];
+  for (let i = 0; i < n; i++) {
+    const first = now - Math.floor(r() * 14) * DAY - r() * DAY, life = Math.floor(r() * r() * 14), last = Math.min(now, first + life * DAY + r() * DAY);
+    let mask = 1; for (let d = 1; d <= life; d++) if (r() < 0.6) mask += 2 ** d;
+    const best = Math.min(100, Math.floor(life * 6 + r() * 12)), stuck = r() < 0.3 ? best + 1 : 0;
+    const hours = Array(24).fill(0).map((_, h) => Math.round((h > 7 ? 1 : 0.1) * (h > 18 ? 3 : 1) * r() * 4)), dows = Array(7).fill(0).map(() => Math.round(r() * 5));
+    const recent = Array(Math.min(10, 2 + life)).fill(0).map((_, k) => Math.round(300 + r() * 1500 - k * 60));
+    const buy = r() < 0.05;
+    out.push(norm("demo" + i, { sid: "KL-" + Math.floor(r() * 9000 + 1000) + "-" + Math.floor(r() * 9000 + 1000), channel: r() < 0.8 ? "testflight" : "appstore",
+      model: models[Math.floor(r() * models.length)], os: "iOS " + (17 + Math.floor(r() * 3)) + ".1", lang: r() < 0.7 ? "tr" : "en", region: r() < 0.7 ? "TR" : ["DE", "US", "GB", "NL"][Math.floor(r() * 4)],
+      app: "0.9.0", first, last, sessions: 1 + life * 2, playMin: Math.round(20 + life * 25 * r()), days: 1 + life, dayMask: mask, hours, dows, recent,
+      best, bestCode: String(Math.floor(best / 10) + 1).padStart(2, "0") + "-" + String((best % 10) + 1).padStart(2, "0"), runs: 3 + life * 6, wins: life * 3, deaths: life * 2 + 1, extracts: life, quits: Math.floor(r() * 3),
+      stuckAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", stuckFails: stuck ? 3 + Math.floor(r() * 6) : 0,
+      lastRun: ["01-0", "02-0", "03-0"][Math.floor(r() * 3)] + Math.floor(r() * 9 + 1) + [" death", " extract", " win"][Math.floor(r() * 3)] + " 03:12",
+      purchases: buy ? 1 : 0, usd: buy ? 4.99 : 0, shopOpens: r() < 0.6 ? 2 : 0, offerViews: r() < 0.4 ? 1 : 0, buyStarts: r() < 0.12 ? 1 : 0, buyFails: r() < 0.07 ? 1 : 0,
+      adsWatched: Math.floor(r() * 12), adsSkipped: Math.floor(r() * 2), adsMissing: Math.floor(r() * 2), onboard: life > 0 ? 2 ** 15 - 1 - (r() < 0.5 ? 2 ** 14 : 0) : 2 ** Math.floor(4 + r() * 6) - 1,
+      survey: r() < 0.4 ? `source=${srcs[Math.floor(r() * srcs.length)]};genres=${gens[Math.floor(r() * gens.length)]},${gens[Math.floor(r() * gens.length)]};fav=${favs[Math.floor(r() * favs.length)]};rating=${3 + Math.floor(r() * 3)}` : "" }));
+  }
+  return out;
+}
+function fakeEvents(p) {
+  return `── Oturum ${p.sessions} · ${new Date(p.last).toLocaleString("tr-TR")} · 14 dk · 3 savaş
+00:00 session_begin n=${p.sessions} day=${p.days - 1} hour=21 best=${p.best}
+00:03 screen_view screen_name=city from=boot
+00:21 level_start mode=sefer level_name=${p.bestCode} attempt=4 best=${p.best}
+03:40 zone_clear level_name=${p.bestCode} zone=1 hp_pct=72
+06:52 king_fell cause=boss boss=cyclops boss_hp=18 lv=14
+07:05 ad_rewarded placement=revive result=watched
+07:06 revive via=ad decide_sec=13
+08:31 level_end result=death level_name=${p.bestCode} sec=487 cause=boss boss=cyclops boss_hp=4 fails_row=4
+08:40 stuck level_name=${p.bestCode} fails=5 days=1.4
+08:52 screen_view screen_name=shop from=run_result
+09:30 purchase_start product=gems.m price_usd=4.99
+09:41 purchase_fail product=gems.m reason=cancelled
+09:44 shop_exit screen=shop sec=52 started=1 bought=0
+10:02 session_pause sec=602 in_run=0`;
+}
+
+render();
+</script>
+</body>
+</html>

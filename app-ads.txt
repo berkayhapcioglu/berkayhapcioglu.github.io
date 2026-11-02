@@ -1,2 +1,2 @@
 # app-ads.txt for berkayhapcioglu.github.io (King Legends: Survivor)
-# AdMob and AppLovin lines will be added once the ad accounts are created.
+# The Google AdMob line will be added once the AdMob account is created.

@@ -511,7 +511,14 @@ async function fetchRun(ref) {
   const k = ref.uid + "/" + ref.doc;
   if (runCache[k]) return runCache[k];
   let doc = null;
-  if (SRC) { const rs = O(O(window.__dump).runs); doc = own(rs, ref.doc) ? cleanRunDoc(rs[ref.doc]) : null; }
+  if (SRC) {
+    const rs = O(O(window.__dump).runs);
+    if (own(rs, ref.doc)) doc = cleanRunDoc(rs[ref.doc]);
+    else if (O(window.__dump).lazyRuns) {   // yerel panel: turun ayrıntısı tıklanınca gelir
+      const r = await fetch("run.json?id=" + encodeURIComponent(ref.doc), { cache: "no-store" });
+      if (r.ok) doc = cleanRunDoc(await r.json());
+    }
+  }
   else {
     const s = await fb.fs.getDoc(fb.fs.doc(fb.db, "players", ref.uid, "sessions", ref.doc));
     if (s.exists()) {
@@ -654,14 +661,21 @@ async function loadSrc() {
   for (const k in runCache) delete runCache[k];
   try {
     const r = await fetch(SRC, { cache: "no-store" });
-    window.__dump = O(await r.json());
-    ingest(A(window.__dump.fleets, 50).map((f) => ({ ...O(f), uid: ID(O(f).uid) || "dump" })));
-  } catch (e) { setStatus("Dosya okunamadı: " + e.message, true); }
+    const d = O(await r.json());
+    if (d.building) {   // yerel panel ilk taramayı yapıyor
+      setStatus("Mac'teki botlar taranıyor; ilk açılışta yarım dakika kadar sürebilir…" + (d.err ? " (" + S(d.err, 200) + ")" : ""));
+      setTimeout(loadSrc, 3000);
+      return;
+    }
+    window.__dump = d;
+    ingest(A(d.fleets, 50).map((f) => ({ ...O(f), uid: ID(O(f).uid) || "dump" })));
+  } catch (e) { setStatus("Okunamadı: " + e.message + ". Sayfayı yenile; olmazsa Mac'te bot paneli kapalı olabilir.", true); }
 }
 
 if (SRC_ASKED && !SRC) setStatus("Bu sayfa yalnızca kendi sitesindeki bir dosyayı açar; verilen adres açılmadı.", true);
 else if (SRC) {
   $("signin").style.display = "none";
+  setStatus(LOCAL ? "Mac'teki botlar okunuyor…" : "Dosya okunuyor…");
   if (LOCAL) document.querySelector('a.btn').href = "https://berkayhapcioglu.github.io/kinglegends/panel/";
   loadSrc();
   setInterval(() => { if (live) loadSrc(); }, 60000);

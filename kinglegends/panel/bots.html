@@ -325,7 +325,7 @@ function mergeRuns(fs) {
     if (k === undefined) byKey.set(r.key, i); else if (all[k].uid !== r.uid) union(i, k);
     for (const fp of r.fps || []) { if (!byFp.has(fp)) byFp.set(fp, []); byFp.get(fp).push(i); }
   });
-  for (const is of byFp.values()) for (let a = 0; a < is.length; a++) for (let b = a + 1; b < is.length; b++) {
+  for (const is of byFp.values()) for (let a = 0; a < is.length && is.length <= 20; a++) for (let b = a + 1; b < is.length; b++) {
     if (all[is[a]].uid === all[is[b]].uid) continue;
     const pk = is[a] + "," + is[b];
     shared.set(pk, (shared.get(pk) || 0) + 1);
@@ -406,6 +406,16 @@ function renderTiles() {
 
 function renderMachine() {
   const parts = [];
+  // "Şu an ne çalışıyor?" sorusunun tek bakışlık cevabı: canlı (son 15 dk'da haber veren) Mac'lerdeki çalışan turlar
+  const liveRuns = runs.filter((r) => r.running > 0 && Date.now() - (r.fleetAt || 0) < 15 * MIN);
+  if (liveRuns.length) {
+    const rows = liveRuns.map((r) => {
+      const desc = r.task || r.summary || "";
+      return `<div class="row liverun" data-k="${esc(r.key)}" style="cursor:pointer">${statusChip(r.status)}<b>${esc(r.name)}</b>
+        <span class="muted">· ${esc(kindName(r.kind))} · ${esc(r.running)} bot çalışıyor${r.botCount > r.running ? ` / ${esc(r.botCount)}` : ""}</span>${desc ? ` · ${esc(desc.length > 140 ? desc.slice(0, 139) + "…" : desc)}` : ""}</div>`;
+    }).join("");
+    parts.push(`<div class="card"><h2>Şu an çalışan turlar</h2><div class="sub">Satıra dokun: turun ayrıntısı aşağıda açılır.</div>${rows}</div>`);
+  }
   for (const f of fleets) {
     if (Date.now() - (f.at || 0) > 15 * MIN) continue;
     const items = [];
@@ -416,6 +426,7 @@ function renderMachine() {
     if (items.length) parts.push(`<div class="card"><h2>${esc(f.host)} şu an</h2><div class="sub">${items.join(" &nbsp;·&nbsp; ")}</div></div>`);
   }
   $("machine").innerHTML = parts.join("");
+  $("machine").querySelectorAll(".liverun[data-k]").forEach((el) => el.onclick = () => { const r = runs.find((x) => x.key === el.dataset.k); if (r) openRun(r); });
 }
 
 function botTitle(b) {

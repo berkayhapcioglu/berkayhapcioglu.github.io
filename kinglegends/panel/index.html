@@ -95,6 +95,10 @@ button.danger { color: var(--bad); }
       <option value="7">Son 7 günde gelenler</option>
       <option value="30">Son 30 günde gelenler</option>
     </select>
+    <select id="era" title="Zaman makinesi (Docs/era-reset.md): lansman öncesi bir kezlik sıfırlama">
+      <option value="all">Bütün veriler</option>
+      <option value="new">Zaman makinesinden sonra</option>
+    </select>
     <button id="reload">Yenile</button>
     <button id="signin" class="primary">Google ile giriş</button>
     <button id="demo">Örnek veri</button>
@@ -173,6 +177,7 @@ $("reload").onclick = () => demo ? render() : load();
 $("demo").onclick = () => { demo = true; all = fakePlayers(60); setStatus("Örnek veri (gerçek değil): panelin nasıl görüneceği."); render(); fakeReports(); fakeChatReports(); };
 $("channel").onchange = render;
 $("range").onchange = render;
+$("era").onchange = render;
 
 let loadedAt = "";
 function setStatus(t, bad) { $("status").textContent = t; $("status").className = "sub" + (bad ? " err" : ""); }
@@ -206,18 +211,28 @@ function norm(id, d) {
     buyStarts: n("buyStarts"), buyFails: n("buyFails"), lastProduct: d.lastProduct || "", adsWatched: n("adsWatched"),
     adsSkipped: n("adsSkipped"), adsMissing: n("adsMissing"), interstitials: n("interstitials"), onboard: n("onboard"),
     survey: d.survey || "", errors: n("errors"), launches: n("launches"), dirty: n("dirty"), saveFix: n("saveFix"),
-    ab: d.ab || "", skew: n("skew"), won1010: ts(d.won1010) };
+    ab: d.ab || "", skew: n("skew"), won1010: ts(d.won1010),
+    era: n("era"), eraAt: ts(d.eraAt), eraFrom: d.eraFrom || "" };
 }
 
 function filtered() {
-  const ch = $("channel").value, range = Number($("range").value), now = Date.now();
+  const ch = $("channel").value, range = Number($("range").value), now = Date.now(), afterEra = $("era").value === "new";
   return all.filter((p) => {
     if (p.channel === "bots") return false;   // Bot Paneli kartları (bots.html), oyuncu değil
     if (ch === "real" && !(p.channel === "testflight" || p.channel === "appstore")) return false;
     if (ch !== "all" && ch !== "real" && p.channel !== ch) return false;
-    if (range > 0 && p.first < now - range * DAY) return false;
+    if (afterEra && p.era < 1) return false;   // henüz zaman makinesini görmemiş (eski sürüm ya da güncellemedi)
+    if (range > 0 && (afterEra ? eraView(p) : p).first < now - range * DAY) return false;
     return true;
-  });
+  }).map((p) => (afterEra ? eraView(p) : p));
+}
+
+// Zaman makinesinden sonra: sıfırlanan oyuncunun günleri sıfırlama gününden sayılır (dayMask kaydırılır), ilk adımlar hunisine
+// girmez (adımları eski çağda yaptı). Oturum, süre, gelir ve savaş sayaçları kurulumdan beri toplamdır (kart böyle tutar).
+function eraView(p) {
+  if (!(p.eraAt > 0) || !(p.first > 0)) return p;
+  const k = Math.max(0, Math.floor((p.eraAt - p.first) / DAY));
+  return { ...p, first: p.eraAt, dayMask: Math.floor(p.dayMask / 2 ** k), onboard: 0, reset: true };
 }
 
 const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) + "%" : "–");
@@ -252,7 +267,8 @@ const median = (a) => { if (!a.length) return 0; const b = [...a].sort((x, y) =>
 
 function render() {
   const ps = filtered(), now = Date.now();
-  if (loadedAt && !demo) setStatus(`${ps.length} oyuncu bu filtrede` + (all.length !== ps.length ? ` (toplam ${all.length} kayıt; ${all.length - ps.length} tanesi filtre dışında)` : "") + ` · ${loadedAt}`);
+  if (loadedAt && !demo) setStatus(`${ps.length} oyuncu bu filtrede` + (all.length !== ps.length ? ` (toplam ${all.length} kayıt; ${all.length - ps.length} tanesi filtre dışında)` : "")
+    + ($("era").value === "new" ? " · zaman makinesinden sonra: günler sıfırlama gününden sayılır; süre, oturum ve gelir kurulumdan beri" : "") + ` · ${loadedAt}`);
   // Tutunma: kurulumdan sonraki gün d'de oyuna girdi mi (yalnız d günü geçmiş olanlar sayılır)
   const ret = (d) => { const base = ps.filter((p) => p.first && p.first <= now - (d + 1) * DAY); const back = base.filter((p) => (p.dayMask / 2 ** d) % 2 >= 1); return [back.length, base.length]; };
   const [d1, d1n] = ret(1), [d3, d3n] = ret(3), [d7, d7n] = ret(7), [d30, d30n] = ret(30);
@@ -309,7 +325,7 @@ function render() {
     count(lost, (p) => p.lastRun.replace(/ \d\d:\d\d$/, "")).slice(0, 12), {}));
   // İlk adımlar hunisi
   charts.push(hbars("İlk adımlar", "Yeni oyuncuların yüzde kaçı bu adıma vardı. Büyük düşüş = ilk dakikalarda sorun. Sıra çoğu oyuncunun yaşadığı sıradır; bazı adımlar (şehir, mağaza) önce ya da sonra gelebilir.",
-    STEP_ORDER.map((i) => [STEPS[i], ps.filter((p) => (p.onboard >> i) & 1).length]), { pct: true, total: ps.length }));
+    STEP_ORDER.map((i) => [STEPS[i], ps.filter((p) => !p.reset && (p.onboard >> i) & 1).length]), { pct: true, total: ps.filter((p) => !p.reset).length }));
   // Diyar hunisi
   const realms = [];
   for (let r = 1; r <= 10; r++) realms.push([`${r}. diyar`, ps.filter((p) => p.best >= (r - 1) * 10).length, `${r}. diyara ulaşan`]);
@@ -368,7 +384,8 @@ function renderTable(ps) {
   const body = rows.map((p) => {
     const flags = [churned(p) ? `<span class="chip bad">bıraktı?</span>` : `<span class="chip good">aktif</span>`,
       p.stuckFails >= 3 ? `<span class="chip warn">takıldı ×${p.stuckFails}</span>` : "", p.wallFails >= 5 ? `<span class="chip warn">duvar ${esc(p.wallAt)} ×${p.wallFails}</span>` : "", shrinking(p) ? `<span class="chip warn">oturum kısalıyor</span>` : "",
-      p.buyFails > 0 && !p.purchases ? `<span class="chip warn">almaya bastı, vazgeçti</span>` : "", p.purchases ? `<span class="chip good">ödedi</span>` : ""].join("");
+      p.buyFails > 0 && !p.purchases ? `<span class="chip warn">almaya bastı, vazgeçti</span>` : "", p.purchases ? `<span class="chip good">ödedi</span>` : "",
+      p.eraAt > 0 ? `<span class="chip" title="Zaman makinesi: ${esc(new Date(p.eraAt).toLocaleDateString("tr-TR"))}, sıfırlamadan önce en ileri bölüm">sıfırlandı · eski ${esc(p.eraFrom || "–")}</span>` : ""].join("");
     return `<tr data-id="${esc(p.id)}"><td>${esc(p.sid || p.id.slice(0, 8))}</td><td>${p.first ? new Date(p.first).toLocaleDateString("tr-TR") : "–"}</td><td>${ago(p.last)}</td><td>${p.days}</td><td>${p.sessions}</td><td>${dur(p.playSec)}</td><td>${esc(p.bestCode)}</td><td>${p.stuckFails >= 3 ? esc(p.stuckAt) + " ×" + p.stuckFails : ""}</td><td>${esc(p.lastRun)}</td><td>${p.usd ? p.usd.toFixed(2) : ""}</td><td>${esc(model(p.model))}</td><td>${flags}</td></tr>`;
   }).join("");
   $("players").innerHTML = head + `<tbody>${body}</tbody>`;
@@ -404,7 +421,7 @@ function fakePlayers(n) {
     const best = Math.min(100, Math.floor(life * 6 + r() * 12)), stuck = r() < 0.3 ? best + 1 : 0;
     const hours = Array(24).fill(0).map((_, h) => Math.round((h > 7 ? 1 : 0.1) * (h > 18 ? 3 : 1) * r() * 4)), dows = Array(7).fill(0).map(() => Math.round(r() * 5));
     const recent = Array(Math.min(10, 2 + life)).fill(0).map((_, k) => Math.round(300 + r() * 1500 - k * 60));
-    const buy = r() < 0.05;
+    const buy = r() < 0.05, eraAt = life >= 3 && r() < 0.6 ? Math.max(first, last - Math.floor(r() * 2) * DAY) : 0;
     out.push(norm("demo" + i, { sid: "KL-" + Math.floor(r() * 9000 + 1000) + "-" + Math.floor(r() * 9000 + 1000), channel: r() < 0.8 ? "testflight" : "appstore",
       model: models[Math.floor(r() * models.length)], os: "iOS " + (17 + Math.floor(r() * 3)) + ".1", lang: r() < 0.7 ? "tr" : "en", region: r() < 0.7 ? "TR" : ["DE", "US", "GB", "NL"][Math.floor(r() * 4)],
       app: "0.9.0", first, last, sessions: 1 + life * 2, playSec: Math.round((20 + life * 25 * r()) * 60), days: 1 + life, dayMask: mask, hours, dows, recent,
@@ -414,6 +431,8 @@ function fakePlayers(n) {
       lastRun: ["01-0", "02-0", "03-0"][Math.floor(r() * 3)] + Math.floor(r() * 9 + 1) + [" death", " extract", " win"][Math.floor(r() * 3)] + " 03:12",
       ab: r() < 0.5 ? "oto20:a" : "oto20:b", skew: r() < 0.04 ? Math.round(600 + r() * 2000) : 0,
       won1010: life >= 9 && r() < 0.5 ? first + (7 + Math.floor(r() * 3)) * DAY : 0, dynasty: life >= 11 && r() < 0.5 ? 2 : 1,
+      // Zaman makinesi: yarısı yeni sürümde; eski oyuncuların bir kısmı sıfırlandı (eski en ileri bölümüyle)
+      era: eraAt > 0 || r() < 0.4 ? 1 : 0, eraAt, eraFrom: eraAt > 0 ? "0" + (1 + Math.floor(r() * 6)) + "-0" + (1 + Math.floor(r() * 9)) : "",
       purchases: buy ? 1 : 0, usd: buy ? 4.99 : 0, shopOpens: r() < 0.6 ? 2 : 0, offerViews: r() < 0.4 ? 1 : 0, buyStarts: r() < 0.12 ? 1 : 0, buyFails: r() < 0.07 ? 1 : 0,
       adsWatched: Math.floor(r() * 12), adsSkipped: Math.floor(r() * 2), adsMissing: Math.floor(r() * 2), onboard: life > 0 ? 2 ** 15 - 1 - (r() < 0.5 ? 2 ** 14 : 0) : 2 ** Math.floor(4 + r() * 6) - 1,
       survey: r() < 0.4 ? `source=${srcs[Math.floor(r() * srcs.length)]};genres=${gens[Math.floor(r() * gens.length)]},${gens[Math.floor(r() * gens.length)]};fav=${favs[Math.floor(r() * favs.length)]};rating=${3 + Math.floor(r() * 3)}` : "" }));

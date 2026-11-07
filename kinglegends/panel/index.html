@@ -38,6 +38,9 @@ button.primary { background: var(--bar); border-color: var(--bar); color: #fff; 
 .tile .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .tile .k { color: var(--ink2); font-size: 13px; }
 .tile .n { color: var(--ink3); font-size: 12px; }
+.tile.good .v { color: var(--good); }
+.tile.warn .v { color: var(--warn); }
+.tile.bad .v { color: var(--bad); }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
 .hbar { display: grid; grid-template-columns: minmax(80px, 38%) 1fr 64px; gap: 8px; align-items: center; font-size: 13px; margin: 3px 0; }
@@ -202,7 +205,8 @@ function norm(id, d) {
     purchases: n("purchases"), usd: Number(d.usd || 0), vip: !!d.vip, shopOpens: n("shopOpens"), offerViews: n("offerViews"),
     buyStarts: n("buyStarts"), buyFails: n("buyFails"), lastProduct: d.lastProduct || "", adsWatched: n("adsWatched"),
     adsSkipped: n("adsSkipped"), adsMissing: n("adsMissing"), interstitials: n("interstitials"), onboard: n("onboard"),
-    survey: d.survey || "", errors: n("errors") };
+    survey: d.survey || "", errors: n("errors"), launches: n("launches"), dirty: n("dirty"), saveFix: n("saveFix"),
+    ab: d.ab || "", skew: n("skew"), won1010: ts(d.won1010) };
 }
 
 function filtered() {
@@ -238,33 +242,66 @@ function columns(title, sub, values, labels) {
 }
 // Süre: 1 dakikanın altı saniye, 10 dakikanın altı bir ondalık
 function dur(sec) { if (!(sec > 0)) return "0 sn"; if (sec < 60) return Math.round(sec) + " sn"; const m = sec / 60; return (m < 10 ? m.toFixed(1).replace(".", ",") : Math.round(m)) + " dk"; }
-function tile(k, v, n) { return `<div class="tile"><div class="k">${esc(k)}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`; }
+function tile(k, v, n, cls) { return `<div class="tile${cls ? " " + cls : ""}"><div class="k">${esc(k)}</div><div class="v">${v}</div>${n ? `<div class="n">${n}</div>` : ""}</div>`; }
+// Soft launch kapıları (Docs/research/2026-11-03-rakipler-softlaunch-aso-patch-plani.md): hedef ve alt sınır (yüzde)
+const GATES = { d1: [40, 35], d7: [18, 15], d30: [8, 6] };
+// Hedefe göre renk: hedef ve üstü yeşil, alt sınırla hedef arası sarı, alt sınırın altı kırmızı; 20 oyuncudan azsa renk yok
+function gate(a, b, g) { if (b < 20) return ""; const v = (a / b) * 100; return v >= g[0] ? "good" : v >= g[1] ? "warn" : "bad"; }
+function gateNote(a, b, g) { return `${a}/${b} oyuncu · hedef %${g[0]}, alt sınır %${g[1]}`; }
+const median = (a) => { if (!a.length) return 0; const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
 
 function render() {
   const ps = filtered(), now = Date.now();
   if (loadedAt && !demo) setStatus(`${ps.length} oyuncu bu filtrede` + (all.length !== ps.length ? ` (toplam ${all.length} kayıt; ${all.length - ps.length} tanesi filtre dışında)` : "") + ` · ${loadedAt}`);
   // Tutunma: kurulumdan sonraki gün d'de oyuna girdi mi (yalnız d günü geçmiş olanlar sayılır)
   const ret = (d) => { const base = ps.filter((p) => p.first && p.first <= now - (d + 1) * DAY); const back = base.filter((p) => (p.dayMask / 2 ** d) % 2 >= 1); return [back.length, base.length]; };
-  const [d1, d1n] = ret(1), [d3, d3n] = ret(3), [d7, d7n] = ret(7);
+  const [d1, d1n] = ret(1), [d3, d3n] = ret(3), [d7, d7n] = ret(7), [d30, d30n] = ret(30);
+  // 10-10 sonrası: ilk 10-10 kaçıncı günde, 3 gün sonra hâlâ oynuyor mu, Hanedan II'ye geçti mi (won1010 yeni sürümlerde)
+  const won = ps.filter((p) => p.won1010 > 0 && p.first > 0);
+  const wonOld = won.filter((p) => p.won1010 <= now - 3 * DAY), stayed = wonOld.filter((p) => p.last >= p.won1010 + 3 * DAY);
+  const finished = ps.filter((p) => p.best >= 100 || p.dynasty >= 2 || p.won1010 > 0), dyn2 = finished.filter((p) => p.dynasty >= 2);
+  const skewed = ps.filter((p) => Math.abs(p.skew) >= 60);
   const sess = ps.flatMap((p) => p.recent).filter((x) => x > 0);
   const nSess = ps.reduce((s, p) => s + Math.max(p.sessions, 0), 0), playSec = ps.reduce((s, p) => s + p.playSec, 0);
   const payers = ps.filter((p) => p.purchases > 0);
   const usd = ps.reduce((s, p) => s + p.usd, 0);
   const lost = ps.filter(churned);
+  // Kararlılık (CrashGuard): kirli kapanış = ön plandayken biten açılış (çökme, bellek yetmezliği, donma). Yalnız sayaçlı sürümler.
+  const stab = ps.filter((p) => p.launches > 0);
+  const launches = stab.reduce((s, p) => s + p.launches, 0), dirty = stab.reduce((s, p) => s + p.dirty, 0);
+  const fixes = ps.reduce((s, p) => s + p.saveFix, 0);
   $("tiles").innerHTML = [
     tile("Oyuncu", ps.length, `${ps.filter((p) => now - p.first < DAY).length} yeni (24 sa)`),
     tile("Bugün oynayan", ps.filter((p) => now - p.last < DAY).length, `7 günde ${ps.filter((p) => now - p.last < 7 * DAY).length}`),
-    tile("Ertesi gün dönen (D1)", pct(d1, d1n), `${d1}/${d1n} oyuncu · hedef %35`),
+    tile("Ertesi gün dönen (D1)", pct(d1, d1n), gateNote(d1, d1n, GATES.d1), gate(d1, d1n, GATES.d1)),
     tile("3. gün (D3)", pct(d3, d3n), `${d3}/${d3n}`),
-    tile("7. gün (D7)", pct(d7, d7n), `${d7}/${d7n} · hedef %10`),
+    tile("7. gün (D7)", pct(d7, d7n), gateNote(d7, d7n, GATES.d7), gate(d7, d7n, GATES.d7)),
+    tile("30. gün (D30)", pct(d30, d30n), gateNote(d30, d30n, GATES.d30), gate(d30, d30n, GATES.d30)),
     tile("Ortalama oturum", nSess ? dur(playSec / nSess) : "–", `${nSess} oturum`),
     tile("Oyuncu başı süre", ps.length ? dur(playSec / ps.length) : "–", "toplam oynama"),
     tile("3+ gündür yok", lost.length, pct(lost.length, ps.length) + " bıraktı (şimdilik)"),
     tile("Ödeme yapan", pct(payers.length, ps.length), `${payers.length} oyuncu · hedef %1,5-3`),
     tile("Gelir (yaklaşık)", "$" + usd.toFixed(2), "mağaza kesintisi öncesi"),
+    tile("Çökmesiz açılış", launches ? (100 * (1 - dirty / launches)).toFixed(1).replace(".", ",") + "%" : "–",
+      `${dirty}/${launches} açılış kirli kapandı · ${stab.filter((p) => p.dirty > 0).length} oyuncu · hedef %99,5+ · kayıt kurtarma ${fixes}`),
+    tile("İlk 10-10", won.length ? Math.round(median(won.map((p) => (p.won1010 - p.first) / DAY))) + ". gün" : "–",
+      `${won.length} oyuncu bitirdi · ortanca · hedef ücretsiz oyuncuda 8-10. gün`),
+    tile("10-10'dan sonra kalan", pct(stayed.length, wonOld.length), `${stayed.length}/${wonOld.length} · 3 gün sonra hâlâ oynuyor`),
+    tile("Hanedan II'ye geçen", pct(dyn2.length, finished.length), `${dyn2.length}/${finished.length} bitiren yeni hanedan kurdu`),
+    tile("Saati sapmış cihaz", skewed.length, `${pct(skewed.length, ps.length)} · 1 saatten büyük fark (oyun düzeltir)`),
   ].join("");
 
   const charts = [];
+  // Soft launch A/B: gruplara göre tutunma, süre, ödeme (Docs/ab-tests.md)
+  const abs = count(ps.filter((p) => p.ab), (p) => p.ab).map(([k]) => k).sort();
+  if (abs.length) {
+    const rowsAb = abs.map((k) => {
+      const g = ps.filter((p) => p.ab === k), r = (d) => { const base = g.filter((p) => p.first && p.first <= now - (d + 1) * DAY); return [base.filter((p) => (p.dayMask / 2 ** d) % 2 >= 1).length, base.length]; };
+      const [a1, b1] = r(1), [a7, b7] = r(7), pay = g.filter((p) => p.purchases > 0).length, sec = g.reduce((s, p) => s + p.playSec, 0);
+      return `<tr><td>${esc(k)}</td><td>${g.length}</td><td>${pct(a1, b1)} <span class="muted">(${b1})</span></td><td>${pct(a7, b7)} <span class="muted">(${b7})</span></td><td>${g.length ? dur(sec / g.length) : "–"}</td><td>${pct(pay, g.length)}</td><td>${(g.reduce((s, p) => s + p.adsWatched, 0) / Math.max(1, g.length)).toFixed(1).replace(".", ",")}</td></tr>`;
+    }).join("");
+    charts.push(`<div class="card"><h2>A/B grupları</h2><div class="sub">rc.json'daki deneme (abTest) adına ve gruba göre. Bir grup için yaklaşık 2.200 oyuncu gerekir; azsa fark şans olabilir.</div><div class="scroll"><table><thead><tr><th>Grup</th><th>Oyuncu</th><th>D1</th><th>D7</th><th>Oyuncu başı süre</th><th>Ödeyen</th><th>Reklam / oyuncu</th></tr></thead><tbody>${rowsAb}</tbody></table></div></div>`);
+  }
   // Nerede bırakıyorlar
   charts.push(hbars("Nerede bıraktılar?", "3 günden uzun süredir girmeyen oyuncuların geçtiği en ileri bölüm (bir sonrakinde kaldılar). Bir yerde yığılma = sonraki bölüm zor ya da sıkıcı.",
     count(lost, (p) => p.bestCode).sort((a, b) => a[0].localeCompare(b[0])).map(([k, v]) => [k === "00-00" ? "Hiç bölüm geçmedi" : k, v]), {}));
@@ -375,6 +412,8 @@ function fakePlayers(n) {
       stuckAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", stuckFails: stuck ? 3 + Math.floor(r() * 6) : 0,
       wallAt: stuck ? String(Math.floor(stuck / 10) + 1).padStart(2, "0") + "-" + String((stuck % 10) + 1).padStart(2, "0") : "", wallFails: stuck ? 5 + Math.floor(r() * 15) : 0,
       lastRun: ["01-0", "02-0", "03-0"][Math.floor(r() * 3)] + Math.floor(r() * 9 + 1) + [" death", " extract", " win"][Math.floor(r() * 3)] + " 03:12",
+      ab: r() < 0.5 ? "oto20:a" : "oto20:b", skew: r() < 0.04 ? Math.round(600 + r() * 2000) : 0,
+      won1010: life >= 9 && r() < 0.5 ? first + (7 + Math.floor(r() * 3)) * DAY : 0, dynasty: life >= 11 && r() < 0.5 ? 2 : 1,
       purchases: buy ? 1 : 0, usd: buy ? 4.99 : 0, shopOpens: r() < 0.6 ? 2 : 0, offerViews: r() < 0.4 ? 1 : 0, buyStarts: r() < 0.12 ? 1 : 0, buyFails: r() < 0.07 ? 1 : 0,
       adsWatched: Math.floor(r() * 12), adsSkipped: Math.floor(r() * 2), adsMissing: Math.floor(r() * 2), onboard: life > 0 ? 2 ** 15 - 1 - (r() < 0.5 ? 2 ** 14 : 0) : 2 ** Math.floor(4 + r() * 6) - 1,
       survey: r() < 0.4 ? `source=${srcs[Math.floor(r() * srcs.length)]};genres=${gens[Math.floor(r() * gens.length)]},${gens[Math.floor(r() * gens.length)]};fav=${favs[Math.floor(r() * favs.length)]};rating=${3 + Math.floor(r() * 3)}` : "" }));

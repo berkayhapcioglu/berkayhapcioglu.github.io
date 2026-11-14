@@ -41,7 +41,7 @@ PLATFORMS = {"ios", "android"}
 CHANNELS = {"appstore", "testflight", "android", "dev"}
 NEWS_KEYS = {"id", "kind", "date", "until", "trTitle", "trBody", "enTitle", "enBody", "link", "quiet", "platform",
              "channel", "minRev", "maxRev"}
-NEWS_KINDS = {"", "patch", "event", "maint"}
+NEWS_KINDS = {"", "patch", "event", "maint", "info"}   # info ve boş: oyunda "Duyuru"
 AB_KEYS = {"abTest", "abShareB", "abForce"}
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?Z?)?$")
 STORE_PREFIXES = ("https://apps.apple.com/", "itms-apps://", "https://play.google.com/store/apps/details?id=",
@@ -301,7 +301,7 @@ def check_news(where, items, rep):
                 rep.err(w + "." + k, "metin olmalı")
         kind = it.get("kind", "")
         if kind not in NEWS_KINDS:
-            rep.err(w + ".kind", "'%s' bilinmiyor (patch, event, maint ya da boş)" % kind)
+            rep.err(w + ".kind", "'%s' bilinmiyor (patch, event, maint, info ya da boş)" % kind)
         tr, en = it.get("trTitle", ""), it.get("enTitle", "")
         if not tr and not en:
             rep.err(w, "başlık yok (trTitle ve enTitle): satır görünmez")

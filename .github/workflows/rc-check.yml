@@ -1,0 +1,34 @@
+# King Legends rc.json denetimi. Yayını DURDURMAZ: GitHub Pages kendi yolundan yayınlar; bu iş yalnız kırmızı/yeşil
+# işaret ve e-posta verir. Asıl koruma yazmadan önce çalıştırmaktır: python3 tools/rc_check.py
+name: rc.json denetimi
+
+on:
+  push:
+    paths:
+      - "kinglegends/rc.json"
+      - "tools/rc_check.py"
+      - "tools/rc-schema.json"
+      - "tools/test_rc_check.py"
+      - ".github/workflows/rc-check.yml"
+  pull_request:
+    paths:
+      - "kinglegends/rc.json"
+      - "tools/rc_check.py"
+      - "tools/rc-schema.json"
+      - "tools/test_rc_check.py"
+      - ".github/workflows/rc-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: rc.json şemaya uyuyor mu
+        run: python3 tools/rc_check.py kinglegends/rc.json
+      - name: Denetleyicinin kendi testleri
+        run: python3 tools/test_rc_check.py
